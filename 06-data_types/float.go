@@ -6,11 +6,8 @@ import (
 )
 
 /*
-GO语言提供了两种精度的浮点数：float32和float64
-常量math.MaxFloat32: ~3.4e38，math.SmallestNonzeroFloat32: ~1.4e-45
-常量math.MaxFloat64: ~1.8e308，math.SmallestNonzeroFloat64: ~4.9e-324
-
 浮点数表示法
+
 IEEE浮点标准用V=(-1)^s x M x 2^E的形式来表示一个数：
 - 符号 s 决定是正数（s=0）还是负数（s=1），而对于数值0的符号位解释作为特殊的情况处理。
 - 有效数 M 是一个二进制小数，它的范围在1~2-ε之间，或者0~1-ε之间。
@@ -47,6 +44,10 @@ IEEE浮点标准用V=(-1)^s x M x 2^E的形式来表示一个数：
 这类数值是指数全为1是出现的。
 - 当小数域全为0时，得到的值表示无穷。当s=0时是+∞，当s=1时是-∞。
 - 当小数域不为0时，结果值被称为'NaN'，意思是Not a number。
+
+GO语言提供了两种精度的浮点数：float32和float64
+常量math.MaxFloat32: ~3.4e38，math.SmallestNonzeroFloat32: ~1.4e-45
+常量math.MaxFloat64: ~1.8e308，math.SmallestNonzeroFloat64: ~4.9e-324
 */
 func float_maxmin() {
 	fmt.Printf("float32 max: %e, min: %e\n", math.MaxFloat32, math.SmallestNonzeroFloat32)
@@ -54,38 +55,51 @@ func float_maxmin() {
 
 	fmt.Println("+0.0 == -0.0", +0.0 == -0.0)
 
+	// 浮点数的字面常量
 	a, b := 1.0, +0.0
 	fmt.Printf("%e, %e\n", a, b)
 
 	infinity := a / b
-	fmt.Println(infinity)
+	fmt.Println(infinity) // +∞
 
 	infinity = -a / b
-	fmt.Println(infinity)
+	fmt.Println(infinity) // -∞
+
+	fmt.Println(b / b) // NaN
 }
 
 /*
- */
-func format() {
+浮点数的格式化
 
+浮点数可以用下面几种格式化参数打印：
+%g 将以更紧凑的方式打印，并提供足够的精度
+%f 以浮点数打印
+%e 以带指数的形式打印
+三种方式都可以指定打印的宽度和控制打印精度。
+*/
+func format() {
+	float32_f()
+	float64_f()
 }
 
-/* 浮点数的精度和舍入 */
+/*
+浮点数的精度和舍入
+*/
 
-// float32类型可以提供大约6个十进制数的精度（即小数点后6位是准确的
+// float32类型可以提供大约6个十进制数的精度（即小数点后6位是准确的）
 func float32_f() {
 	const e float32 = 3.1415926
-	fmt.Printf("float32: %[1]v, %.7[1]f, %[1]g\n", e)
+	fmt.Printf("float32: %[1]e, %.7[1]f, %[1]g\n", e)
 	const r float32 = 31415926.
-	fmt.Printf("float32: %[1]v, %.7[1]f, %[1]g\n", r)
+	fmt.Printf("float32: %[1]e, %.7[1]f, %[1]g\n", r)
 }
 
 // float64类型可以提供大约15个十进制数的精度（即小数点后15位是准确的）
 func float64_f() {
 	const e float64 = 3.1415926141592614159261415926
-	fmt.Printf("float64: %[1]v, %.17[1]f, %[1]g\n", e)
+	fmt.Printf("float64: %[1]e, %.17[1]f, %[1]g\n", e)
 	const r float64 = 31415926141592614159261415926.
-	fmt.Printf("float64: %[1]v, %.17[1]f, %[1]g\n", r)
+	fmt.Printf("float64: %[1]e, %.17[1]f, %[1]g\n", r)
 }
 
 /* 浮点数不满足结合律 */
