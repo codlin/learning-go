@@ -52,20 +52,6 @@ GO语言提供了两种精度的浮点数：float32和float64
 func float_maxmin() {
 	fmt.Printf("float32 max: %e, min: %e\n", math.MaxFloat32, math.SmallestNonzeroFloat32)
 	fmt.Printf("float32 max: %e, min: %e\n", math.MaxFloat64, math.SmallestNonzeroFloat64)
-
-	fmt.Println("+0.0 == -0.0", +0.0 == -0.0)
-
-	// 浮点数的字面常量
-	a, b := 1.0, +0.0
-	fmt.Printf("%e, %e\n", a, b)
-
-	infinity := a / b
-	fmt.Println(infinity) // +∞
-
-	infinity = -a / b
-	fmt.Println(infinity) // -∞
-
-	fmt.Println(b / b) // NaN
 }
 
 /*
@@ -102,10 +88,126 @@ func float64_f() {
 	fmt.Printf("float64: %[1]e, %.17[1]f, %[1]g\n", r)
 }
 
-/* 浮点数不满足结合律 */
+// TODO: 浮点数的舍入
+
+/* 浮点数运算 */
+func float_cal() {
+	fmt.Println("+0.0 == -0.0", +0.0 == -0.0)
+
+	// 浮点数的字面常量
+	a, b := 1.0, +0.0
+	fmt.Printf("%e, %e\n", a, b)
+
+	// 1/+0 被定义为+∞
+	infinity := a / b
+	fmt.Println(infinity) // +∞
+
+	// 1/-0 被定义为-∞
+	infinity = a / (-b)
+	fmt.Println(infinity) // -∞
+
+	// 0/0 被定义为NaN
+	fmt.Println(b / b) // NaN
+
+	/* 函数math.IsNaN可以用来测试一个数是不是NaN */
+	nan := b / b
+	fmt.Printf("Is NaN: %v\n", math.IsNaN((nan)))
+
+	/* math.NaN 可以用来表示一个非法的结果，但测试一个数是不是NaN是危险的
+	因为NaN和任何数都是不相等的。在浮点数中，NaN、正无穷、负无穷都不是唯一的，每个都有非常多种的位模式表示
+	*/
+	fmt.Println(b/b == b/b, nan == nan, nan > nan, nan < nan, nan == math.NaN())
+
+	// 处理浮点失败的做法
+	v, ok := compute()
+	if ok {
+		fmt.Printf("got value: %e\n", v)
+	}
+}
+
+/* 如果一个函数返回的浮点数结果可能失败，那么最好的做法是用单独的标志位报告失败 */
+func compute() (value float64, ok bool) {
+	failed := false
+	result := 3.14
+	if failed {
+		return 0, false
+	}
+	return result, true
+}
+
+/* 浮点数加法满足交换律，但不满足结合律 */
+func float_assoc() {
+	fmt.Println("illustrate float_assoc")
+
+	a, b := 3.14, 1e10
+	// 浮点数满足交换律
+	fmt.Println(a+b, a+b == b+a)
+
+	/* 但不满足结合律 */
+	// float64精度，在和大数相加减时，因为舍入，会导致值的丢失
+	fmt.Println(a+b-b, a+(b-b), (a+b-b) == (a+(b-b))) // 3.1399993896484375 3.14 false
+
+	// 在单精度下，直接导致 3.14 丢失
+	var c, d float32 = 3.14, 1e10
+	fmt.Println(c+d-d, c+(d-d), (c+d-d) == (c+(d-d))) // 0 3.14 false
+
+	/* 不满足结合律的一个错误优化
+	在大多数情况下没有问题，但是有时会产生不同于原始的值，可能差别很细小，
+	在大多数应用种不太重要，但是在科学计算等对精度要求很高的场景，需要重视。
+	可以参考CSAPP中关于火箭发射精度误差的例子。
+	*/
+	x := 3.14 + 3.15 + 2.71
+	y := 3.15 + 2.71 + 1.41
+
+	t := 3.15 + 2.71
+	m := 3.14 + t
+	n := t + 1.41
+	fmt.Printf("x=%g, y=%g, m=%g, n=%g, x==m: %v, y==n: %v\n", x, y, m, n, x == m, y == n) // y==n: false
+
+	/* 在大多数情况下浮点数也有逆元，-x+x=0，但是对于无穷例外 */
+	e := 0.0
+	fmt.Println(-a+a, -1/e+1/e, -1/e+1/e == 0, -1/e+1/e == math.NaN()) // 0 NaN false false
+
+	/* 对于任何x，都有 NaN+x=NaN */
+	fmt.Printf("3.14+3.14/0 == 3.14/0 is %v\n", a+a/e == a/e)
+}
+
+/*
+浮点数加法满足单调性
+
+如果a>=b，对于任何a和b的值，除了x!=NaN，都有 x+a >= x+b。
+（当x=NaN时，对于任何x都有 NaN+x=NaN，任何NaN都不相等，所以不满足上面的条件）
+*/
+func float_mono() {
+	fmt.Println("illustrate float_mono")
+
+	a, b, c := 1.330, 1.331, -0.768
+	fmt.Println(a+c < b+c) // true
+
+	// 在不失最小精度的情况下可以得到正确的单调性结果
+	var x, y, z float32 = 1.1234561, 1.1234562, -1.1234561
+	fmt.Println(x+z, y+z, x+z < y+z) // 0 1.1920929e-07 true
+
+	// 在失去最小精度的情况下无法满足单调性，但是仍然可以满足逆元
+	x, y, z = 1.12345611, 1.12345612, -1.1234561
+	fmt.Println(x+z, y+z, x+z < y+z) // 0 0 false
+}
+
+/* 浮点数乘法满足交换律，但不满足结合律和在加法上的分配律 */
+func float_mul() {
+	fmt.Println("illustrate float_mul")
+
+	a, b, c := 1.1, 1e20, 3.3
+	fmt.Println(a*b, a*b == b*a) //
+
+	fmt.Println(a*b*c, a*b*c == b*a*c, a*b*c == b*c*a, a*b*c == a*(c*b)) //
+}
 
 func main() {
 	float_maxmin()
-	float32_f()
-	float64_f()
+	format()
+	float_cal()
+	float_assoc()
+	float_mono()
+	float_mul()
 }
