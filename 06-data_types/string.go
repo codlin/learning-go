@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"reflect"
+	"unicode/utf8"
 	"unsafe"
 )
 
@@ -153,7 +154,54 @@ Unicode转义也可以使用在rune字符中。下面三个字符是等价的：
 */
 
 func unicode_utf8() {
+	s := "hello, 世界"
+	fmt.Printf("s length: %d\n", len(s))
+	for i := 0; i < len(s); i++ {
+		fmt.Printf("%d, %[2]q, %[2]b\n", i, s[i])
+	}
 
+	fmt.Printf("s rune length: %d\n", utf8.RuneCountInString(s))
+	for i, v := range s { /* for range 在处理字符串的时候，会自动隐式解码UTF8字符串 */
+		fmt.Printf("%d %q\n", i, v)
+	}
+
+	// for 循环中采用解码的方式遍历所有 rune。这段程序和 for range 等价
+	for i := 0; i < len(s); {
+		// DecodeRuneInString 返回解码后的 rune 符文以及该符文的编码长度
+		r, size := utf8.DecodeRuneInString(s[i:])
+		fmt.Printf("%d\t%c\n", i, r)
+		i += size
+	}
+
+	count := 0
+	for range s {
+		count++
+	}
+	fmt.Printf("s length: %d\n", count)
+
+	/* 每一个UTF8字符解码，不管是显式的调用 utf8.RuneCountInString 解码或是在range循环中隐式解码，如果遇到一个错误的UTF8编码输入，
+	将生成一个特别的Unicode字符'\uFFFD', 在打印时这个字符为一个菱形里面有个问号
+	*/
+	s = "hello, 世\xF7"
+	fmt.Println(s)
+
+	/* UTF8 字符串作为交换格式是非常方便的，但是在程序内部使用rune序列可能更方便，因为rune大小一致，可以支持数组索引和方便切割
+	string 接收到 []rune 的类型转换，可以将一个UTF8编码的字符串解码为Unicode字符序列
+	*/
+	s = "プログラム"
+	fmt.Printf("% x\n", s) // "e3 83 97 e3 83 ad e3 82 b0 e3 83 a9 e3 83 a0"
+	r := []rune(s)
+	fmt.Printf("%x\n", r) // "[30d7 30ed 30b0 30e9 30e0]"
+
+	/* 如果将一个 []rune 类型的Unicode字符slice或数组转换为string，则对它们进行UTF8编码 */
+	fmt.Println(string(r))
+
+	/* 将一个整型转换为字符串的意思是生成只包含对应Unicode码点字符的UTF8字符串 */
+	fmt.Println(string(65))
+	fmt.Println(string(0x4eac))
+
+	/* 如果对应码点的字符串是无效的，则用"\uFFFD"无效字符作为替换 */
+	fmt.Println(string(12345678))
 }
 
 func str_slice() {
@@ -166,4 +214,5 @@ func main() {
 	strcmp()
 	str_share()
 	escap_sequence()
+	unicode_utf8()
 }
