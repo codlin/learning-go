@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"unicode/utf8"
 	"unsafe"
 )
@@ -50,6 +53,25 @@ func str_immut() {
 	// s[0] = 'f' // compile error
 	s = "foo bar"
 	fmt.Println(s)
+
+	// 在其它函数更新字符串变量的值
+	update_str(s)
+	fmt.Println(s)
+
+	update_str1(&s)
+	fmt.Println(s)
+}
+
+// 字符串类型作为函数参数，是作为值传递的
+func update_str(s string) {
+	s = "hello, metaverse"
+	fmt.Println(s)
+}
+
+// 如果要在函数内重新为字符串变量赋值，可以使用字符串指针
+func update_str1(s *string) {
+	*s = "hello, metaverse"
+	fmt.Println(*s)
 }
 
 /* 字符串不变性意味着两个字符串可以安全的共享相同的底层数据，这使得复制任何长度的字符串代价是低廉的 */
@@ -204,8 +226,135 @@ func unicode_utf8() {
 	fmt.Println(string(12345678))
 }
 
-func str_slice() {
+/*
+字符串和切片
 
+标准库中有4个包对字符串处理尤为重要：bytes、strings、strconv 和 unicode 包。
+
+strings包提供了诸如字符串的查询、替换、比较、截断、拆分和合并等功能。
+
+bytes包也提供了很多类似的功能函数，但是针对的是和字符串有着相同结构的[]byte类型。
+因为字符串是只读的，因此逐步构建字符串会导致很多分配和复制。在这种情况下，使用bytes.Buffer类型会更有效。
+
+strconv包提供了布尔型、整型、浮点型和对应字符串之间的相互转换，还提供了双引号转义相关的转换。
+
+unicode包提供了IsDigit、IsLetter、IsUpper 和 IsLower 等类似功能，它们用于给字符分类。
+每个函数有一个单一的rune类型的参数，然后返回一个布尔值。而像ToUpper和ToLower之类的转换函数将用于rune字符的大小写转换。
+所有这些函数都是遵循unicode标准定义的字母、数字等分类规范。
+strings包也有类似的函数，它们是ToUpper和ToLower，将原始字符串的每个字符都做相应的转换，然后返回新的字符串。
+*/
+func str_slice() {
+	// 字符串和byte slice之间可以相互转换
+	s := "hello world"
+	b := []byte(s)
+	s2 := string(b)
+	fmt.Println(s2)
+
+	// string 和 bytes 之间有很多功能相同的函数，唯一的区别函数参数的类型不同
+	if strings.Contains(s, "hello") {
+		fmt.Printf("%s contains %s\n", s, "hello")
+	}
+
+	str_cmp(s, "hello world")
+	str_cmp(s, "hello")
+	str_cmp(s, "hello world!")
+
+	fmt.Printf("%s contains %s count: %d\n", s, "l", strings.Count(s, "l"))
+
+	fmt.Println("---------test bytes--------")
+	if bytes.Contains(b, []byte("hello")) {
+		fmt.Printf("%s contains %s\n", b, []byte("hello"))
+	}
+	bytes_cmp(b, []byte("hello world"))
+	bytes_cmp(b, []byte("hello"))
+	bytes_cmp(b, []byte("hello world!"))
+
+	fmt.Printf("%s contains %s count: %d\n", b, []byte("l"), bytes.Count(b, []byte("l")))
+
+	fmt.Println((*reflect.StringHeader)(unsafe.Pointer(&s)))
+	fmt.Println((*reflect.SliceHeader)(unsafe.Pointer(&b)))
+}
+
+func str_cmp(s1, s2 string) {
+	ret := strings.Compare(s1, s2)
+	if ret == 0 {
+		fmt.Printf("%s == %s\n", s1, s2)
+	} else if ret == -1 {
+		fmt.Printf("%s < %s\n", s1, s2)
+	} else if ret == 1 {
+		fmt.Printf("%s > %s\n", s1, s2)
+	}
+}
+
+func bytes_cmp(s1, s2 []byte) {
+	ret := bytes.Compare(s1, s2)
+	if ret == 0 {
+		fmt.Printf("%s == %s\n", s1, s2)
+	} else if ret == -1 {
+		fmt.Printf("%s < %s\n", s1, s2)
+	} else if ret == 1 {
+		fmt.Printf("%s > %s\n", s1, s2)
+	}
+}
+
+/*
+byte 还提供了Buffer类型用于byte slice的缓存。一个Buffer开始是空的，但随着string、byte或[]byte等数据类型的写入可以动态增长。
+
+一个byte.Buffer变量并不需要初始化，因为零值也是有效的
+*/
+func ints_to_string(values []int) string {
+	var buf bytes.Buffer
+	buf.WriteByte('[')
+
+	for i, v := range values {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		fmt.Fprintf(&buf, "%d", v) // 如果添加的是rune字符，最好用WriteRune方法
+	}
+	buf.WriteByte(']')
+
+	return buf.String()
+}
+
+/*
+字符串和数字的转换
+*/
+func str_num() {
+	a, b, c, d := "-123", "3.14", 456, 2.715
+
+	/* 将一个整数转换为字符串有两种方法：
+	1. 用 fmt.Sprintf 返回一个格式化的字符串
+	2. 用 strconv.Itoa("整数到ASCII")
+	*/
+	s := fmt.Sprintf("%d", c)
+	fmt.Println(s)
+
+	s = strconv.Itoa(c)
+	fmt.Println(s)
+
+	/* 将浮点数转换为字符串，可以使用 fmt.Sprintf 或 strconv.FormatFloat */
+	s = fmt.Sprintf("%.3f", d)
+	fmt.Println(s)
+	s = strconv.FormatFloat(d, 'f', 2, 64)
+	fmt.Println(s)
+
+	/* 将字符串转换成整数，可以用 strconv.Atoi 或 strconv.ParseInt 函数，还有用于解析无符号整数的 ParseUint */
+	i, _ := strconv.Atoi(a)
+	fmt.Println(i)
+
+	k, _ := strconv.ParseInt(a, 10, 64)
+	fmt.Println(k)
+
+	m, err := strconv.ParseUint(a, 10, 64) // 负数字符串解析为Uint会失败
+	fmt.Println(m, err)                    // 0 strconv.ParseUint: parsing "-123": invalid syntax
+
+	m, err = strconv.ParseUint(b, 10, 64) // 浮点数字符串解析为Uint会失败
+	fmt.Println(m, err)                   // 0 strconv.ParseUint: parsing "3.14": invalid syntax
+
+	/* 将字符串转换为浮点数，可以使用 strconv.ParseFloat */
+	n, _ := strconv.ParseFloat(b, 64)
+	fmt.Println(n)
 }
 
 func main() {
@@ -215,4 +364,7 @@ func main() {
 	str_share()
 	escap_sequence()
 	unicode_utf8()
+	str_slice()
+	fmt.Println(ints_to_string([]int{1, 2, 3, 4}))
+	str_num()
 }
