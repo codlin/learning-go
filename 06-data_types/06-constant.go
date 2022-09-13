@@ -156,6 +156,9 @@ func untpyed_const_opt() {
 	fmt.Println(5 / 9 * (f - 32))     // "0"; 5/9 is an untyped integer, 0
 	fmt.Println(5.0 / 9.0 * (f - 32)) // "100"; 5.0/9.0 is an untyped float
 
+	// var a, b int = 5, 9
+	// fmt.Println(a / b * (f - 32)) // compile error, mismatch type
+
 	/* 只有常量可以是无类型的。当一个无类型的常量被赋值给一个变量的时候，就像下面的第一行语
 	句，或者出现在有明确类型的变量声明的右边，如下面的其余三行语句，无类型的常量将会被隐式
 	转换为对应的类型，如果转换合法的话。
