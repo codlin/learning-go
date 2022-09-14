@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"unsafe"
 )
 
 /*
@@ -70,9 +71,15 @@ func arry_len_le_4() {
 	&a[3] = 4
 	即所有的元素都放置在栈上
 	*/
-	a := [...]int64{1, 2, 3, 4}
+	a := [4]int64{1, 2, 3, 4}
+	p1 := &a
+	p2 := &a[1]
+	p3 := &a[2]
+	p4 := &a[3]
 
-	fmt.Printf("a: %v\n", a) // [1 2 3 4]
+	// 0xc0000a0000 0xc0000a0008 0xc0000a0010 0xc0000a0018
+	// 0xc000098018 0xc000098020 0xc000098028 0xc000098030
+	fmt.Printf("%p %p %p %p\n%p %p %p %p", p1, p2, p3, p4, &p1, &p2, &p3, &p4)
 }
 
 func arry_len_more_4() {
@@ -140,11 +147,17 @@ func array_pointer() {
 	// TODO: 疑问，如何打印出数组变量的地址？譬如上面&a打印的是数组的首地址，但我理解栈上应该有个存放局部变量a的8字节大小的地址
 }
 
+func struct_array() {
+	a := [200]struct{}{}
+	fmt.Printf("&a: %p, unsafe.Sizeof(a): %d, sizeof(a[0]): %d\n", &a, unsafe.Sizeof(a), unsafe.Sizeof(a[0]))
+}
+
 func main() {
 	array_def()
 	arry_len_le_4()
 	arry_len_more_4()
 	array_pointer()
+	struct_array()
 }
 
 /* READ ME
@@ -152,4 +165,28 @@ func main() {
 ```shell
 GOSSAFUNC=arry_len_4 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o arry_len_4.html ./array.go
 ```
+*/
+
+/*
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+int main()
+{
+	int a[]={1, 2, 3};
+	int *b = a;
+	int *c = a;
+	int *d = (int *)malloc(sizeof(int)*3);
+	int *e = d;
+
+    printf("a: %p\t&a: %p\t&b: %p\t&c: %p\n", a, &a, &b, &c); // a: 0x7ffe85a686f4	&a: 0x7ffe85a686f4	&b: 0x7ffe85a686e8	&c: 0x7ffe85a686e0
+
+	printf("d: %p\t&d: %p\t&e: %p\n", d, &d, &e); // d: 0x207b260	&d: 0x7fffb98a0b88	&e: 0x7fffb98a0b80
+
+	free(d);
+	d = NULL;
+    return 0;
+}
+````
 */
