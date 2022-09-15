@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"unsafe"
 )
@@ -150,6 +151,41 @@ func array_pointer() {
 func struct_array() {
 	a := [200]struct{}{}
 	fmt.Printf("&a: %p, unsafe.Sizeof(a): %d, sizeof(a[0]): %d\n", &a, unsafe.Sizeof(a), unsafe.Sizeof(a[0]))
+
+	v := reflect.ValueOf(a)
+	fmt.Printf("can addr: %v\n", v.CanAddr())
+	fmt.Printf("Len: %v\n", v.Len())
+	fmt.Printf("Cap: %v\n", v.Cap())
+	fmt.Printf("kind: %v\n", v.Kind())
+}
+
+// reverse reverses a slice of ints in place.
+func reverse(s [3]int) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+}
+
+func array_callee_1(a [3]int) {
+	a[0] = 100
+}
+
+func array_callee_2(a *[3]int) {
+	a[0] = 100
+}
+
+/* 数组作为函数参数传递时是值传递 */
+func array_caller() {
+	a := [3]int{1, 2, 3}
+
+	array_callee_1(a)
+	fmt.Println(a)
+
+	array_callee_2(&a)
+	fmt.Println(a)
+
+	reverse(a)
+	fmt.Println(a)
 }
 
 func main() {
@@ -158,6 +194,7 @@ func main() {
 	arry_len_more_4()
 	array_pointer()
 	struct_array()
+	array_caller()
 }
 
 /* READ ME
