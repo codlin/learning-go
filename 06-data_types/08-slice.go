@@ -14,6 +14,9 @@ slice的底层的确引用了一个数组对象。一个slice由三个部分组�
 指针指向slice第一个元素对应的底层数组元素的地址，要注意的是，不一定是数组的第一个元素。
 长度对应slice的中元素的数目。容量一般是从slice的开始位置到底层数组的结尾位置（非元素结尾）。
 内置函数len和cap可以返回slice的长度和容量。
+
+make([]T, len)
+make([]T, len, cap) // same as make([]T, cap)[:len]
 */
 
 func slice_declare() {
@@ -164,10 +167,47 @@ func slice_compare() {
 	fmt.Println(a == nil)
 }
 
+/*
+slice的零值
+
+一个零值的slice等于nil。一个nil值的slice并没有底层数组。
+一个ni值的slice长度和容量都为0，但也有非nil值的slice的长度和容量都为0的，例如 []int{} 或 make([]int, 3)[3:]
+与任意类型的nil值一样，我们可以用[]int(nil)类型转换表达式来生成一个对应类型的slice的nil值。
+
+如果要测试一个slice是否为空，要用len(s)==0来判断，而不是用s==nil
+*/
+func slice_nil() {
+	var a []int // len(a) == 0, a == nil
+	fmt.Println(len(a), a == nil)
+
+	a = nil // len(a) == 0, a == nil
+	fmt.Println(len(a), a == nil)
+
+	a = []int(nil) // len(a) == 0, a == nil
+	fmt.Println(len(a), a == nil)
+
+	a = []int{} // len(a) == 0, a != nil
+	fmt.Println(len(a), a == nil)
+
+	b := []byte(nil)
+	fmt.Println(len(b), b == nil)
+
+	c := []string(nil)
+	fmt.Println(len(c), c == nil)
+
+	if len(a) == 0 {
+		fmt.Println("a is empty")
+	}
+
+	/* 一个nil值的slice行为和其它任意0长度的slice一样 */
+	b = b[:]
+}
+
 func main() {
 	slice_declare()
 	slice_share()
 	slice_expand()
 	slice_func_param()
 	slice_compare()
+	slice_nil()
 }

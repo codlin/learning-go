@@ -1,0 +1,9 @@
+{
+    "editor.fontFamily": "'Fira Code','微软雅黑', Monaco,Consolas, 'Courier New', monospace",
+    "editor.fontSize": 16,
+    "editor.formatOnSave": true,
+    "workbench.preferredDarkColorTheme": "Atom Material Theme",
+    "workbench.colorTheme": "GitHub Plus",
+    "workbench.iconTheme": "material-icon-theme",
+    "editor.fontLigatures": true
+}
