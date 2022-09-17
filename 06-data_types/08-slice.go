@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"reflect"
+	"unsafe"
 )
 
 /* slice
@@ -58,9 +60,19 @@ func slice_expand() {
 	fmt.Printf("\n\n")
 }
 
+func slice_header(a []int) {
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&a))
+	fmt.Printf("addr: 0x%x\tlen:%d\tcap:%d\n", header.Data, header.Len, header.Cap)
+}
+
 /* 函数内对slice进行追加不会影响到外部slice */
 func slice_append(a []int) {
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&a))
+	fmt.Printf("before append a: %p\t&a: %p\taddr: 0x%x\tlen:%d\tcap:%d\n", a, &a, header.Data, header.Len, header.Cap)
+	// 根据上下文，append导致扩容，内部copy生成了新的底层数组，因此返回返回的新地址只是赋给了参数变量，并不能影响到外面
 	a = append(a, 100, 200, 300)
+	header = (*reflect.SliceHeader)(unsafe.Pointer(&a))
+	fmt.Printf("after append a: %p\t&a: %p\taddr: 0x%x\tlen:%d\tcap:%d\n", a, &a, header.Data, header.Len, header.Cap)
 }
 
 func slice_update(a []int) {
@@ -90,10 +102,11 @@ func slice_reverse(s []int) {
 }
 
 /*
-slice在作为函数参数传递时是值传递，会在被调用函数内创建一个新的slice（即对底层数组创建一个新的slice别名）。
-新的slice和原slice的指针都指向同样的底层数组。
-如果新slice追加了元素或其它操作导致了它长度的增加，将不会影响到原slice（因为新slice会和原底层数组切割）。
-如果新slice不扩充长度，只是对元素进行更新，则会影响到底层数组，进而影响到所有其它正在引用底层数组的slices。
+slice在作为函数参数传递时，是指针传递还值传递要看如何看待。
+作为参数，在被调用函数内生成一个新的slice，新的slice和原slice的数据指针都指向同样的底层数组。
+也就是说，对于reflect.SliceHeader结构体来说是值传递, 但并没有复制底层数组，而是共享了指针地址。
+如果新slice追加了元素或其它操作导致了它长度的增加，将不会影响到原slice（因为新slice会和原底层数组切割，修改数据指针的指向）。
+如果新slice不扩充长度，只是对元素进行更新，则会影响到底层数组，进而影响到所有正在引用底层数组的其它slices。
 */
 func slice_func_param() {
 	a := make([]int, 0, 11)
@@ -102,7 +115,11 @@ func slice_func_param() {
 	fmt.Printf("a: %v\n", a)
 	fmt.Printf("a: %v\n", b)
 
+	slice_header(a)
+
+	fmt.Printf("out: a: %p\t&a: %p\n", a, &a)
 	slice_append(a)
+	fmt.Printf("out a: %p\t&a: %p\n", a, &a)
 	fmt.Println("after slice append in func slice_append:")
 	fmt.Printf("a: %v\n", a)
 	fmt.Printf("a: %v\n", b)
@@ -112,13 +129,13 @@ func slice_func_param() {
 	fmt.Println("after slice update in func slice_update:")
 	fmt.Printf("a: %v\n", a)
 	fmt.Printf("a: %v\n", b)
-	fmt.Printf("不会影响原slice\n\n")
+	fmt.Printf("会影响原slice\n\n")
 
 	slice_reslice_1(a)
 	fmt.Println("after reslice in func slice_reslice_1 (not grow length):")
 	fmt.Printf("a: %v\n", a)
 	fmt.Printf("a: %v\n", b)
-	fmt.Printf("不会影响原slice\n\n")
+	fmt.Printf("会影响原slice\n\n")
 
 	slice_reslice_2(a)
 	fmt.Println("after reslice in func slice_reslice_2 (grow length):")
@@ -130,7 +147,7 @@ func slice_func_param() {
 	fmt.Println("after slice reverse in func slice_reverse:")
 	fmt.Printf("a: %v\n", a)
 	fmt.Printf("a: %v\n", b)
-	fmt.Printf("不会影响原slice\n\n")
+	fmt.Printf("会影响原slice\n\n")
 }
 
 /*
@@ -203,11 +220,123 @@ func slice_nil() {
 	b = b[:]
 }
 
+func appendInt(x []int, y int) []int {
+	var z []int
+	zlen := len(x) + 1
+	if zlen <= cap(x) {
+		z = x[:zlen]
+	} else {
+		zcap := zlen
+		if zcap < 2*len(x) {
+			zcap = 2 * len(x)
+		}
+		z = make([]int, zlen, zcap)
+		copy(z, x)
+	}
+	z[len(x)] = y
+	return z
+}
+
+func slice_expand2() {
+	var x, y []int
+	for i := 0; i < 10; i++ {
+		y = appendInt(x, i)
+		fmt.Printf("%d\t%d\t%v\n", i, cap(y), y)
+		x = y
+	}
+}
+
+/*
+内置的append函数有更为复杂的内存扩展策略。
+因此，我们并不知道append调用是否导致了内存的重新分配，所以不能确认新的slice和原slice是否还指向相同的底层数组空间。
+同样，我们也不能确认对原slice上的操作是否会影响到新的slice，反之亦然。
+通常的做法是将append的返回结果直接赋值给输入的slice变量。
+*/
+func slice_append2() {
+	x := []int{1, 2, 3}
+	x = append(x, 4, 5, 6)
+	fmt.Println(x)
+}
+
+func appendInt2(x []int, y ...int) []int {
+	var z []int
+	zlen := len(x) + len(y)
+	if zlen <= cap(x) {
+		z = x[:zlen]
+	} else {
+		zcap := zlen
+		if zcap < 2*len(x) {
+			zcap = 2 * len(x)
+		}
+		z = make([]int, zlen, zcap)
+		copy(z, x)
+	}
+	copy(z[len(x):], y)
+	return z
+}
+
+func slice_expand3() {
+	var x, y []int
+	for i := 0; i < 10; i++ {
+		y = appendInt2(x, i, i+1, i+2, i+3)
+		fmt.Printf("%d\t%d\t%v\n", i, cap(y), y)
+		x = y
+	}
+}
+
+/* slice 使用技巧 */
+func slice_noempty(s []string) []string {
+	i := 0
+	for _, v := range s {
+		if v != "" {
+			s[i] = v
+			i++
+		}
+	}
+	return s[:i]
+}
+
+func slice_noempty_test() {
+	fmt.Println(slice_noempty([]string{"", "", "hello", "", "world", ""}))
+	fmt.Println(slice_noempty([]string{"hello", "", "", "", "world", ""}))
+
+	/* 因为共享底层数组，所以原来的数据会被覆盖 */
+	data := []string{"hello", "", "1", "2", "3", "world", "", "", "done"}
+	fmt.Println(data)                // [hello  1 2 3 world   done]
+	fmt.Println(slice_noempty(data)) // [hello 1 2 3 world]
+	fmt.Println(data)                // [hello 1 2 3 world done   done]
+
+	/* 因此通常会这样使用 */
+	data = slice_noempty(data)
+}
+
+/* 练习 */
+// 1. 重写reverse，用数组指针代替slice
+func reverse(s *[10]int) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+}
+
+func reverse_test() {
+	a := [10]int{1, 2, 3, 4}
+	reverse(&a)
+	fmt.Println(a)
+
+	b := [10]int{1, 2, 3, 4, 5}
+	reverse(&b)
+	fmt.Println(b)
+}
+
 func main() {
 	slice_declare()
 	slice_share()
 	slice_expand()
+	slice_expand2()
+	slice_expand3()
 	slice_func_param()
 	slice_compare()
 	slice_nil()
+	slice_noempty_test()
+	reverse_test()
 }
