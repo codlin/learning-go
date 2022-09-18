@@ -75,6 +75,7 @@ func struct_literal() {
 	fmt.Println(a, b)
 }
 
+/* 如果考虑效率的话，较大的结构体通常用指针的方式传入和返回 */
 func struct_as_func_param() {
 	dilbert := Employee{Name: "dilbert", Salary: 10000}
 
@@ -85,7 +86,7 @@ func struct_as_func_param() {
 	fmt.Println(dilbert, dilbert.Link)
 }
 
-/* 结构体作为函数参数传递是值传递，浅复制所有成员 */
+/* 结构体作为函数参数传递是值传递，浅复制所有成员。如果在函数内部修改结构体成员的话，指针式必须的 */
 func struct_func_param(e Employee) {
 	e.Name = "Sean"
 	e.Link.ManagerID = 200
@@ -121,7 +122,23 @@ func struct_as_return() {
 
 }
 
+/*
+结构体比较
+
+如果结构体的所有成员都是可以比较的，那么结构体也是可以比较的，那样的话两个结构体可以用==或!=运算符进行比较
+可比较的结构体类型可以用于map的key
+*/
+func struct_compare() {
+	a := Employee{Name: "dilbert"}
+	b := Employee{Name: "dilbert"}
+	fmt.Println(a == b) // true
+}
+
+/*
+结构体嵌入和匿名成员
+*/
 func main() {
 	struct_var()
 	struct_as_func_param()
+	struct_compare()
 }

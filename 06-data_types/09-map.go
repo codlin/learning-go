@@ -142,7 +142,10 @@ func map_composite() {
 	fmt.Printf("b --> c: %t\n", has_edge(graph, "b", "c"))
 }
 
-/* map作为函数参数传递时传递的是指针，即参数的局部变量保存的是map的地址 */
+/*
+map作为函数参数传递时传递的是值。在Go语言中，所有的函数参数都是值拷贝传入的
+因为map本身是引用类型，所以复制的是map的地址
+*/
 func add_edge(graph map[string]map[string]bool, from, to string) {
 	fmt.Printf("add_edge, graph: %p\t&graph: %p\n", graph, &graph) // 0xc00006a510 0xc000012038
 	edges := graph[from]
