@@ -136,9 +136,49 @@ func struct_compare() {
 
 /*
 结构体嵌入和匿名成员
+
+Go语言可以在结构体中只生命一个成员对应的数据类型而不指定成员名字；这类成员就叫匿名成员
+匿名成员的数据类型必须是命名的类型或指向一个命名类型的指针。
+结构体中可以有多个匿名成员，但同一个命名类型只能有1个匿名成员，多个将导致名字冲突。
+
+得益于匿名的嵌入特性，我们可以直接访问叶子属性而不需要给出完整的路径。
+匿名成员简短访问的特性不仅是对访问嵌套成员的点运算符提供的语法糖，更重要的是对匿名类型的方法集的访问。
 */
+type Point struct {
+	X, Y int
+}
+
+type Circle struct {
+	Point  // 匿名成员
+	Radius int
+}
+
+type Wheel struct {
+	Circle
+	Spokes int
+}
+
+func struct_embed() {
+	/* 在创建包含匿名成员的结构体变量时，结构体字面值没有简短表示匿名成员的语法，必须完全指定 */
+	s := Wheel{
+		Circle: Circle{
+			Point: Point{
+				X: 1,
+				Y: 1,
+			},
+			Radius: 5,
+		},
+		Spokes: 24,
+	}
+	fmt.Printf("%#v\n", s) // %v参数包含的#副词，表示用和Go语言类似的语法打印值
+
+	s.X = 2
+	s.Circle.Point.Y = 2 // 完整的路径也是可以的
+}
+
 func main() {
 	struct_var()
 	struct_as_func_param()
 	struct_compare()
+	struct_embed()
 }
