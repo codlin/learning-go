@@ -9,8 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/net/html"
 )
 
 /*
@@ -34,11 +32,11 @@ func title(url string) error {
 		resp.Body.Close()
 		return fmt.Errorf("%s has type %s, not text/html", url, ct)
 	}
-	doc, err := html.Parse(resp.Body)
-	resp.Body.Close()
-	if err != nil {
-		return fmt.Errorf("parsing %s as HTML: %v", url, err)
-	}
+	// doc, err := html.Parse(resp.Body)
+	// resp.Body.Close()
+	// if err != nil {
+	// 	return fmt.Errorf("parsing %s as HTML: %v", url, err)
+	// }
 	return nil
 }
 
@@ -53,7 +51,7 @@ func title(url string) error {
 
 defer语句经常被用于处理成对的操作，如打开、关闭、连接、断开连接、加锁、释放锁。
 通过defer机制，不论函数逻辑多复杂，都能保证在任何执行路径下，资源被释放。
-释放资源的defer应该直接跟在请求资源的语句后。
+释放资源的defer应该直接跟在请求资源的语句后。需要注意一点：不能忘记defer语句后面的圆括号。
 */
 func title_2(url string) error {
 	resp, err := http.Get(url)
@@ -66,10 +64,10 @@ func title_2(url string) error {
 	if ct != "text/html" && !strings.HasPrefix(ct, "text/html;") {
 		return fmt.Errorf("%s has type %s, not text/html", url, ct)
 	}
-	doc, err := html.Parse(resp.Body)
-	if err != nil {
-		return fmt.Errorf("parsing %s as HTML: %v", url, err)
-	}
+	// doc, err := html.Parse(resp.Body)
+	// if err != nil {
+	// 	return fmt.Errorf("parsing %s as HTML: %v", url, err)
+	// }
 	// ...print doc's title element…
 	return nil
 }
@@ -107,4 +105,60 @@ func trace(msg string) func() {
 	return func() {
 		log.Printf("exit %s (%s)", msg, time.Since(start))
 	}
+}
+
+/*
+我们知道，对defer语句的执行是在return语句更新返回值变量之后，又因为在函数中定义的匿名函数可以访问该函数包括返回值在内的所有变量，
+所以，对于匿名函数采用defer机制，可以使其观察函数的返回值
+*/
+func double(x int) (result int) {
+	defer func() { fmt.Printf("double(%d) = %d\n", x, result) }()
+	result = x + x
+	return
+}
+
+/* 被延迟执行的函数甚至可以修改函数返回给调用者的返回值 */
+func triple(x int) (result int) {
+	defer func() {
+		result += x
+	}()
+	return double(x)
+}
+
+/*
+在循环体中的语句需要特别的注意，因为是在循环体完成后在执行。
+下面的函数导致系统的文件描述符耗尽。
+*/
+func exhaust_fd(filenames []string) error {
+	for _, filename := range filenames {
+		f, err := os.Open(filename)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+	}
+	return nil
+}
+
+/*
+一种解决办法就是将循环体中的defer移至另外一个函数。每次循环时都调用这个函数。
+*/
+func doFile(filename string) error {
+	f, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return nil
+}
+
+func exhaust_fd_2(filenames []string) error {
+	for _, filename := range filenames {
+		return doFile(filename)
+	}
+	return nil
+}
+
+func main() {
+	fmt.Println(double(4))
 }
