@@ -66,7 +66,19 @@ type phone struct {
 }
 
 func (p *phone) show() {
-	fmt.Printf("out: type pointer: %p, brand: %s, model:%s, weight: %d\n", p, p.brand, p.model, p.weight)
+	fmt.Printf("in show: type pointer: %p, brand: %s, model:%s, weight: %d\n", p, p.brand, p.model, p.weight)
+}
+
+func (p *phone) update(weight int) {
+	fmt.Printf("modify weight in method: %d\n", weight)
+	p.weight = weight
+	fmt.Printf("in update: type pointer: %p, brand: %s, model:%s, weight: %d\n", p, p.brand, p.model, p.weight)
+}
+
+func (p *phone) update_mode(model string) {
+	fmt.Printf("modify model in method: %s\n", model)
+	p.model = model
+	fmt.Printf("in update_mode: type pointer: %p, brand: %s, model:%s, weight: %d\n", p, p.brand, p.model, p.weight)
 }
 
 type pad struct {
@@ -102,10 +114,35 @@ func (n *notebook) update(weight int) {
 }
 
 func (n *notebook) show() {
-	fmt.Printf("in show: %p\tbrand:%s\tmodel:%s\tweight[0x%p]:%d\n", &n, n.brand, n.model, n.weight, *n.weight)
+	fmt.Printf("in show: %p\tbrand:%s\tmodel:%s\tweight[0x%p]:%d\n", n, n.brand, n.model, n.weight, *n.weight)
 }
 
 func show_notebook(n *notebook) {
+	fmt.Printf("out show: %p\tbrand:%s\tmodel:%s\tweight[0x%p]:%d\n", n, n.brand, n.model, n.weight, *n.weight)
+}
+
+type itv struct {
+	brand  string
+	model  string
+	weight *int
+}
+
+func (n *itv) update_weight(weight int) {
+	fmt.Printf("modify weight in method: %d\n", weight)
+	n.weight = &weight
+	fmt.Printf("in update_weight, type pointer: %p, brand: %s, model:%s, weight: %d\n", n, n.brand, n.model, *n.weight)
+}
+func (n itv) update_model(model string) {
+	fmt.Printf("modify model in method: %s\n", model)
+	n.model = model
+	fmt.Printf("in update_model, type pointer: %p, brand: %s, model:%s, weight: %d\n", &n, n.brand, n.model, *n.weight)
+}
+
+func (n *itv) show() {
+	fmt.Printf("in show: %p\tbrand:%s\tmodel:%s\tweight[0x%p]:%d\n", n, n.brand, n.model, n.weight, *n.weight)
+}
+
+func show_itv(n *itv) {
 	fmt.Printf("out show: %p\tbrand:%s\tmodel:%s\tweight[0x%p]:%d\n", n, n.brand, n.model, n.weight, *n.weight)
 }
 
@@ -114,7 +151,8 @@ func test_copy() {
 	fmt.Printf("%p\t%v\n", &iwatch, iwatch)
 	iwatch.show() // type pointer: 0xc000100510
 
-	fmt.Println("test var copy: receiver is value, and copy var value")
+	fmt.Printf("%s\n", strings.Repeat("=", 64))
+	fmt.Println("情景1： 方法接收器为值类型，变量通过拷贝值生成")
 	another_iwatch := iwatch
 	another_iwatch.weight = 50
 	another_iwatch.model = "v5"
@@ -126,7 +164,8 @@ func test_copy() {
 	iwatch.show() // type pointer: 0xc000100570
 	fmt.Println("哪怕是同一个变量，如果方法的receiver是值，在调用方法时也会先拷贝一份变量值，然后再调用方法，因此上面打印显示类型的指针不同")
 
-	fmt.Println("test var copy: receiver is value, and copy var pointer")
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+	fmt.Println("情景2： 方法接收器为值类型，变量通过拷贝指针生成")
 	third_iwatch := &iwatch
 	third_iwatch.weight = 60
 	third_iwatch.model = "v6"
@@ -139,10 +178,13 @@ func test_copy() {
 	fmt.Printf("%s\n", strings.Repeat("-", 64))
 	iphone_6s := phone{brand: "iphone", model: "6s", weight: 180}
 	fmt.Printf("%p\t%v\n", &iphone_6s, iphone_6s)
+	iphone_6s.update(182)
+	iphone_6s.update_mode("6")
 	iphone_6s.show()
 	fmt.Println("如果方法的receiver是指针变量，则不产生拷贝。上面打印变量的指针，和方法中打印变量的指针相同。")
 
-	fmt.Println("test var copy: receiver is pointer, and copy var pointer")
+	fmt.Printf("%s\n", strings.Repeat("=", 64))
+	fmt.Println("情景3： 方法接收器为指针类型，变量通过拷贝指针生成")
 	iphone_6sp := &iphone_6s
 	iphone_6sp.model = "6sp"
 	iphone_6sp.weight = 200
@@ -154,7 +196,8 @@ func test_copy() {
 	iphone_6s.show()
 	fmt.Println("上面修改的是同一个变量，因为show方法的接收者是指针，因此在调用时不会产生拷贝，打印出的类型指针和iphone_6s相同")
 
-	fmt.Println("test var copy: receiver is pointer, and copy var value")
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+	fmt.Println("情景4： 方法接收器为指针类型，变量通过拷贝值生成")
 	iphone_x := iphone_6s
 	iphone_x.model = "x"
 	iphone_x.weight = 220
@@ -173,7 +216,8 @@ func test_copy() {
 	show_pad(&ipad_air2)
 	ipad_air2.show()
 
-	fmt.Println("test var copy: receiver is value, and copy var value. some fields of var are pointer member")
+	fmt.Printf("%s\n", strings.Repeat("=", 64))
+	fmt.Println("情景5： 方法接收器为值类型，变量通过拷贝值生成。变量中存在指针类型的字段")
 	ipad_air3 := ipad_air2
 	ipad_air3.model = "ari3"
 	weight = 405
@@ -189,7 +233,8 @@ func test_copy() {
 	*/
 	fmt.Println("↑因为update方法的接收者是值，所以在调用时会拷贝一个变量，因此在变量内修改weight的值不会影响到外面。\n但是外面的变量ipad_air3修改了weight指针的值，ipad_air2和ipad_air2底层指向同一个对象，所以ipad_air2的weight也被修改了。")
 
-	fmt.Println("test var copy: receiver is value, and copy var pointer. some fields of var are pointer member")
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+	fmt.Println("情景6： 方法接收器为值类型，变量通过拷贝指针生成。变量中存在指针类型的字段")
 	ipad_air4 := &ipad_air2
 	ipad_air4.model = "ari4"
 	weight = 410
@@ -205,28 +250,45 @@ func test_copy() {
 
 	fmt.Printf("%s\n", strings.Repeat("-", 64))
 	weight = 1000
-	notebook := pad{brand: "iMac", model: "bookair", weight: &weight}
-	fmt.Printf("%p\tweight:%d\n", &notebook, *notebook.weight)
-	notebook.update(1401)
-	fmt.Printf("%p\tweight:%d\n", &notebook, *notebook.weight)
+	notebook_air := notebook{brand: "iMac", model: "bookair", weight: &weight}
+	show_notebook(&notebook_air)
+	notebook_air.update(1401)
+	notebook_air.show()
+	show_notebook(&notebook_air)
 
-	fmt.Println("test var copy: receiver is pointer, and copy var value. some fields of var are pointer member")
-	notebook_air2 := notebook
+	fmt.Printf("%s\n", strings.Repeat("=", 64))
+	fmt.Println("情景7： 方法接收器为指针类型，变量通过拷贝值生成。变量中存在指针类型的字段")
+	notebook_air2 := notebook_air
 	notebook_air2.model = "ari2"
 	weight = 1405
 	notebook_air2.weight = &weight
-	fmt.Printf("%p\tweight:%d\n", &notebook_air2, *notebook_air2.weight)
+	show_notebook(&notebook_air2)
 	notebook_air2.update(1406)
-	fmt.Printf("%p\tweight:%d\n", &notebook_air2, *notebook_air2.weight)
+	notebook_air2.show()
+	show_notebook(&notebook_air2)
 
-	fmt.Println("test var copy: receiver is value, and copy var pointer. some fields of var are pointer member")
-	notebook_pro := notebook
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+	fmt.Println("情景8： 方法接收器为指针类型，变量通过拷贝指针生成。变量中存在指针类型的字段")
+	notebook_pro := notebook_air
 	notebook_pro.model = "pro"
 	weight = 1410
 	notebook_pro.weight = &weight
-	fmt.Printf("%p\tweight:%d\n", &notebook_pro, *notebook_pro.weight)
+	show_notebook(&notebook_pro)
 	notebook_pro.update(1415)
-	fmt.Printf("%p\tweight:%d\n", &notebook_pro, *notebook_pro.weight)
+	notebook_pro.show()
+	show_notebook(&notebook_pro)
+
+	fmt.Printf("%s\n", strings.Repeat("=", 64))
+	fmt.Println("情景9： 类型的多个方法接收器有值类型和指针类型的混合形式")
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+	weight = 800
+	itv_3 := itv{brand: "iTV", model: "3", weight: &weight}
+	show_itv(&itv_3)
+	itv_3.update_weight(850)
+	itv_3.update_model("4")
+	itv_3.show()     // model还是3
+	show_itv(&itv_3) // model还是3
+	fmt.Println("由上面的例子可见，尽量不要在类型的各种方法里混合Mix不同的接收器类型，这样会有意想不到的效果。")
 }
 
 func main() {
