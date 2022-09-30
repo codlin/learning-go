@@ -146,6 +146,58 @@ func show_itv(n *itv) {
 	fmt.Printf("out show: %p\tbrand:%s\tmodel:%s\tweight[0x%p]:%d\n", n, n.brand, n.model, n.weight, *n.weight)
 }
 
+// 测试类型的方法接收器是值、指针以及混合情况下的初始化方式
+/*
+在每一个合法的方法调用表达式中，下面三种情况的任意一种都是可以的：
+1. 实际变量的类型和接收器形参的类型相同
+2. 接收器形参类型是T，但接收器实参类型是*T，这种情况下编译器会隐式的为我们解引用，取到指针指向的实际变量。
+   如func (w watch) show()，对于指针变量 pwatch，pwatch.show() 相当于 (*pwatch).show()
+3. 接收器形参类型是*T，但接收器实参类型是T，这种情况下编译器会隐式的为我们取变量的地址。
+   如func (p *phone) show()，对于变量 iphone6s， iphone6s.show() 相当于 (&iphone6s).show()
+*/
+func test_init() {
+	fmt.Printf("%s\n", strings.Repeat("=", 64))
+	fmt.Println("情景1： 方法接收器为值类型，通过值类型的变量来调用方法")
+	watch3 := watch{brand: "iwatch", model: "v3", weight: 40}
+	watch3.show()
+
+	fmt.Println("情景2： 方法接收器为值类型，通过指针类型的变量来调用方法")
+	watch4 := &watch{brand: "iwatch", model: "v4", weight: 45}
+	watch4.show()
+	fmt.Println("watch4.show()这种情况，编译器会自动对指针变量解引用后调用方法，相当于：(*watch4).show()")
+	(*watch4).show()
+	fmt.Println("对于方法接收器为值类型，我们可以通过直接声明变量的方式来调用方法，\n如：watch{brand: \"iwatch\", model: \"v7\", weight: 60}.show()")
+	watch{brand: "iwatch", model: "v7", weight: 60}.show()
+
+	fmt.Printf("%s\n", strings.Repeat("=", 64))
+	fmt.Println("情景3： 方法接收器为指针类型，通过值类型的变量来调用方法")
+	iphone6s := phone{brand: "iphone", model: "6s", weight: 180}
+	iphone6s.show()
+	fmt.Println("iphone6s.show()这种情况，编译器会自动取变量地址后调用方法，相当于：(&iphone6s).show()")
+	(&iphone6s).show()
+
+	fmt.Println("情景4： 方法接收器为指针类型，通过指针类型的变量来调用方法")
+	iphone6sp := &phone{brand: "iphone", model: "6sp", weight: 200}
+	iphone6sp.show()
+	fmt.Println("(x)对于方法接收器为指针类型，我们**无法**通过直接声明变量取地址的方式来调用方法，\n如：&phone{brand: \"iphone\", model: \"6sp\", weight: 200}.show()")
+
+	fmt.Printf("%s\n", strings.Repeat("=", 64))
+	fmt.Println("情景5： 方法接收器为既有值也有指针的混合类型，通过值类型的变量来调用方法")
+	weight := 800
+	itv_3 := itv{brand: "iTV", model: "3", weight: &weight}
+	itv_3.update_weight(805) // 相当于 (&itv_3).update_weight(805)
+	itv_3.update_model("4")
+	itv_3.show() // 相当于 (&itv_3).show()
+
+	fmt.Printf("%s\n", strings.Repeat("=", 64))
+	fmt.Println("情景5： 方法接收器为既有值也有指针的混合类型，通过指针类型的变量来调用方法")
+	weight = 810
+	itv_4 := &itv{brand: "iTV", model: "4", weight: &weight}
+	itv_4.update_weight(815)
+	itv_4.update_model("4") // 相当于 （*itv_4）.update_model("4")
+	itv_4.show()
+}
+
 func test_copy() {
 	iwatch := watch{brand: "iwatch", model: "v4", weight: 40}
 	fmt.Printf("%p\t%v\n", &iwatch, iwatch)
@@ -292,5 +344,6 @@ func test_copy() {
 }
 
 func main() {
+	test_init()
 	test_copy()
 }
