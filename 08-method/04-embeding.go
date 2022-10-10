@@ -19,6 +19,7 @@ type Point struct {
 
 // method of the Point type
 func (p *Point) Distance(q Point) float64 {
+	fmt.Println("Point.Distance")
 	return math.Hypot(q.X-p.X, q.Y-p.Y)
 }
 
@@ -74,8 +75,18 @@ p.Distance(q) // compile error: cannot use q (ColoredPoint) as Point
 Distance和下面的形式是等价的：
 */
 func (p *ColoredPoint) Distance(q Point) float64 {
+	fmt.Println("ColoredPoint.Distance")
 	return p.Point.Distance(q)
 }
+
+/*
+当编译器解析一个选择器到方法时，比如p.Distance，
+它会首先去找直接定义在ColoredPoint这个类型里的Distance方法，
+然后找被ColoredPoint的内嵌字段们引入的方法，
+然后去找Point和RGBA的内嵌字段引入的方法，
+然后一直递归向下找。
+如果选择器有二义性的话编译器会报错，比如你在同一级里有两个同名的方法。
+*/
 
 func main() {
 	test_embed_struct_field()
