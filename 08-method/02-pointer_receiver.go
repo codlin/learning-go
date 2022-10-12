@@ -81,6 +81,10 @@ func (p *phone) update_mode(model string) {
 	fmt.Printf("in update_mode: type pointer: %p, brand: %s, model:%s, weight: %d\n", p, p.brand, p.model, p.weight)
 }
 
+func (p *phone) String() string {
+	return p.brand + p.model
+}
+
 type pad struct {
 	brand  string
 	model  string
@@ -179,9 +183,12 @@ func test_init() {
 	fmt.Println("情景4： 方法接收器为指针类型，通过指针类型的变量来调用方法")
 	iphone6sp := &phone{brand: "iphone", model: "6sp", weight: 200}
 	iphone6sp.show()
-	fmt.Println("(x)对于方法接收器为指针类型，我们**无法**通过直接声明变量取地址的方式来调用方法，\n如：&phone{brand: \"iphone\", model: \"6sp\", weight: 200}.show()")
+	fmt.Println("(x)对于方法接收器为指针类型，我们**无法**在一个不能寻址的值上来调用方法，\n如：phone{brand: \"iphone\", model: \"6sp\", weight: 200}.show()")
 
-	fmt.Printf("%s\n", strings.Repeat("=", 64))
+	fmt.Println("因为*phone实现了String方法，而phone没有，所以值类型的变量无法赋值给fmt.Stringer而指针型变量可以")
+	// var _ fmt.Stringer = iphone6s // compile error
+	var _ fmt.Stringer = &iphone6s
+
 	fmt.Println("情景5： 方法接收器为既有值也有指针的混合类型，通过值类型的变量来调用方法")
 	weight := 800
 	itv_3 := itv{brand: "iTV", model: "3", weight: &weight}

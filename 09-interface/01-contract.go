@@ -1,5 +1,11 @@
 package main
 
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+)
+
 /*
 接口即约定
 
@@ -11,3 +17,34 @@ Go语言中接口类型的独特之处在于它是满足隐式实现的（satisf
 
 接口类型是一种抽象的类型，它由一系列方法组成，不包含其它内容。
 */
+
+// 接口的定义：type + 标识符 + interface + { 方法集 }
+type ReadWriter interface {
+	Read(p []byte) (n int, err error)
+	Write(p []byte) (n int, err error)
+}
+
+type WordCount int
+
+func (w *WordCount) Write(p []byte) (n int, err error) {
+	scanner := bufio.NewScanner(bytes.NewReader(p))
+	scanner.Split(bufio.ScanWords)
+	for scanner.Scan() {
+		*w++
+	}
+	return int(*w), nil
+}
+
+func main() {
+	input := `
+	add a module:
+	ng g ng-alain:module test
+	`
+	var w WordCount
+	w.Write([]byte(input))
+	fmt.Println(w)
+
+	w = 0
+	fmt.Fprintf(&w, "hello, world")
+	fmt.Println(w)
+}
