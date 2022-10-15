@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 )
 
 /*
@@ -77,13 +76,58 @@ func interface_value() {
 
 /*
 通常在编译期间，我们不知道接口值的动态类型是什么，所以一个接口上的调用必须使用动态分配。因为不是直接调用，
-编译器必须产生代码以获取具体类型的方法地址，然后间接的调用这个地址。
+编译器必须产生代码以获取具体类型的方法地址，然后间接的调用这个地址。这个调用的接受者是接口动态值的拷贝，
+上面w是*bytes.Buffer类型时，w.Write相当于是(*bytes.Buffer).Write
+      w
+      +---------------------+
+ type |    *bytes.Buffer    |              bytes.Buffer
+      +---------------------+             +--------------------+
+value |         *-----------|------------>|  data []byte       |
+      +---------------------+             +--------------------+
 */
+
+/*
+一个接口可以持有任意大的动态值。
+接口可以使用==和!=进行比较。两个接口相等仅当它们都是nil值（类型和值都是nil）或者它们的动态类型相同并且动态值也是按照这个动态类型的==操作相等时。
+因为接口值是可以比较的，所以它们可以用在map的键或者作为switch语句的操作数。
+但是如果两个接口的动态类型相同，但是它们的值是不可比较的（比如切片），将它们进行比较就会失败并且产生panic：
+*/
+func interface_compare() {
+	var x interface{} = []int{1, 2, 3}
+	fmt.Println(x == x) // panic
+}
+
+/*
+考虑到这点，接口类型是非常与众不同的。其它类型要么是安全的可比较（如基本类型和指针），要么是完全不可比较的（如切片slices，映射类型maps，和函数functions）
+但在比较接口值或者包含了接口值的聚合（aggregate）类型时，我们必须要意识到潜在的panic。同样的风险也存在于使用接口作为map键或者switch操作数时。
+只能比较你非常确定它们的动态值是可以比较类型的接口值。我们可以通过%T来打印接口值的动态类型，或者使用反射机制来获取接口动态值的类型。
+*/
+
+/*
+警告（Cavate）：
+一个包含nil指针的接口不是nil接口。
+An Interface Containing a Nil Pointer Is Non-Nil
+参见function：interface_value()
+下面的代码，在调用f(buf)时如果buf是nil，那么在f中，out并不是nil，因为它的动态类型是*bytes.Buffer，但动态值是nil，所以out.Write会引发panic
+*/
+func non_nil(i int) {
+	var buf *bytes.Buffer // 应该修改为：var buf io.Writer
+	if i&1 == 0 {
+		buf = new(bytes.Buffer)
+	}
+	f(buf) // NOTE: subtly incorrect!
+}
+
+// If out is non‐nil, output will be written to it.
+func f(out io.Writer) {
+	if out != nil {
+		out.Write([]byte("done!\n")) // panic: nil pointer dereference
+	}
+}
+
+/* Benchmark: 接口动态调用和类型直接调用的性能测试对比 */
 
 func main() {
 	interface_value()
-	s := "[1][1.0]ABCDEFG"
-	idx := strings.LastIndexByte(s, ']')
-	s = s[idx+1:]
-	fmt.Println(idx, s)
+	interface_compare()
 }
