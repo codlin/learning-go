@@ -49,9 +49,11 @@ func (s *stringReader) Read(p []byte) (n int, err error) {
 value |      nil      |
       +---------------+
 
+**判断两个接口对象是否相等，不但要看它们的类型type是否一样，还要看值value是否一样**
+
 一个接口值被描述为nil还是非nil是基于它的动态类型来判断的。
-这一点很关键，如果它的动态类型是nil，那么这个类型值就是nil；否则，
-如果它的动态类型不为nil，那么即使接口值中value部分为nil，则这个接口值也不为nil
+**这一点很关键，如果它的动态类型是nil，那么这个类型值就是nil；否则，
+如果它的动态类型不为nil，那么即使接口值中value部分为nil，则这个接口值也不为nil**
 
 在下面4个语句中，变量w得到3个不同的值：（初始化值和最后的值相同）
 */
@@ -59,6 +61,7 @@ value |      nil      |
 func interface_value() {
 	var w io.Writer
 	fmt.Println(w == nil) // true
+	fmt.Println(w == w)   // true
 
 	var f *os.File
 	fmt.Println(f == nil) // true
@@ -94,7 +97,8 @@ value |         *-----------|------------>|  data []byte       |
 */
 func interface_compare() {
 	var x interface{} = []int{1, 2, 3}
-	fmt.Println(x == x) // panic
+	fmt.Println(x)
+	// fmt.Println(x == x) // panic. interface value is not comparable.
 }
 
 /*
