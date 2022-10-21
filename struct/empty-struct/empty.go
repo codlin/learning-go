@@ -18,8 +18,8 @@ var zerobase uintptr // 使用go:linkname编译指令，将zerobase变量指向r
 func main() {
 	a := Empty{}
 	b := struct{}{}
-	fmt.Printf("sizeof(a): %v\n", unsafe.Sizeof(a))
-	fmt.Printf("sizeof(b): %v\n", unsafe.Sizeof(b))
+	fmt.Printf("sizeof(a): %v\n", unsafe.Sizeof(a)) // 0
+	fmt.Printf("sizeof(b): %v\n", unsafe.Sizeof(b)) // 0
 
 	fmt.Printf("ptr of a: %p\n", &a)
 	fmt.Printf("ptr of b: %p\n", &b)
