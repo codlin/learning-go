@@ -86,11 +86,12 @@ channel还支持close操作，用于关闭channel，随后对基于该channel的
 对应已经被close的channel执行接收数据操作，依然可以接收到之前已经发送的数据；如果channel中已经没有数据，则产生这个channel元素类型的零值数据。
 使用内置函数close可以关闭channel。
 */
-func chan_close() {
-	fmt.Println("chan_close")
+func close_chan() {
+	fmt.Println("close_chan")
 
 	a := make(chan int, 5)
-	defer close(a)
+	close(a)
+	// a <- 1 // panic: send on closed channel
 }
 
 func recv_on_closed_chan() {
@@ -176,11 +177,220 @@ func sync_routines() {
 
 /*
 Pipelines
+
+Channels也可以用于将多个goroutine串联在一起，一起channel的输出作为下一个channel的输入。这样串联起来的channel就是所谓的管道（pipeline）。
 */
+
+// 这个程序是一个简单的管道，发送自然数给channel，下一个goroutine接收数据后计算乘方，然后发送给下一个channel，最后主goroutine打印出最终值。
+func channels_pipeline_1() {
+	fmt.Println("channels_pipeline_1")
+
+	naturals := make(chan int)
+	squares := make(chan int)
+
+	// Counter
+	go func() {
+		for x := 0; ; x++ {
+			naturals <- x
+		}
+	}()
+
+	// Squares
+	go func() {
+		for {
+			x := <-naturals
+			squares <- x * x
+		}
+	}()
+
+	// Printers (in main goroutine)
+	for {
+		fmt.Println(<-squares)
+	}
+}
+
+/*
+上面的程序 channels_pipeline_1 将生成0、1、2、4、9、...形式的无穷数列。
+像这样的串联管道可以用在需要长时间运行的服务中，每个长时间运行的goroutine可能会包含一个死循环，在不同goroutine的死循环内部使用串联的channels来通信。
+
+但是，如果我们希望发送有限的数量该如何处理？
+如果发送者知道没有更多的值发送到channel的话，那么让接收者也能及时知道没有多余的值可接收将是有用的，因为接收者可以停止不必要的等待。
+可以通过内置的close来关闭通道：close(naturals)。
+在关闭的channel上发送数据将会导致panic。在关闭的channel上接收数据将会得到该channel元素类型的零值。
+*/
+
+// 这个程序在发送10个数后关闭channel naturals。因为无法检测到channel关闭，所以后面for循环一定次数后退出
+func channels_pipeline_2() {
+	fmt.Println("channels_pipeline_2")
+
+	naturals := make(chan int)
+	squares := make(chan int)
+
+	// Counter
+	go func() {
+		for x := 0; ; x++ {
+			naturals <- x
+			if x == 10 {
+				close(naturals)
+				break
+			}
+		}
+	}()
+
+	// Squares
+	go func() {
+		for x := 0; x < 15; x++ {
+			x := <-naturals
+			squares <- x * x
+		}
+		close(squares)
+	}()
+
+	// Printers (in main goroutine)
+	for x := 0; x < 20; x++ {
+		fmt.Println(<-squares)
+	}
+}
+
+/*
+没有办法直接测试一个channel是否关闭，但是接收操作有一个变体形式：
+它过接收一个结果，多接收的第二个结果是一个布尔值，true表示成功从channels接收到值，flase表示channels已经被关闭并且里面没有值看接收。
+基于这个特性，下面是修改后的代码：
+*/
+func channels_pipeline_3() {
+	fmt.Println("channels_pipeline_3")
+
+	naturals := make(chan int)
+	squares := make(chan int)
+
+	// Counter
+	go func() {
+		for x := 0; x < 10; x++ {
+			naturals <- x
+		}
+		close(naturals)
+	}()
+
+	// Squares
+	go func() {
+		for {
+			x, ok := <-naturals
+			if !ok {
+				break
+			}
+			squares <- x * x
+		}
+		close(squares)
+	}()
+
+	// Printers (in main goroutine)
+	for {
+		x, ok := <-squares
+		if !ok {
+			break
+		}
+		fmt.Println(x)
+	}
+}
+
+/*
+因为上面 channels_pipeline_3 检查channel关闭的语法比较笨拙，而且这种模式很常用，所以Go语言的range循环支持可以直接在channel上迭代。
+*/
+func channels_pipeline_4() {
+	fmt.Println("channels_pipeline_4")
+
+	naturals := make(chan int)
+	squares := make(chan int)
+
+	// Counter
+	go func() {
+		for x := 0; x < 10; x++ {
+			naturals <- x
+		}
+		close(naturals)
+	}()
+
+	// Squares
+	go func() {
+		for x := range naturals {
+			squares <- x * x
+		}
+		close(squares)
+	}()
+
+	// Printers (in main goroutine)
+	for x := range squares {
+		fmt.Println(x)
+	}
+}
+
+/*
+其实不需要关闭每一个channel。只有当需要告诉接收值goroutine，所有的数据已经全部发送完毕时才需要关闭channel。
+不管一个channel是否被关闭，当它没有被引用时将会被Go语言的垃圾回自动回收器回收。
+试图重复关闭一个channel将导致panic异常，试图关闭一个nil的channel也将导致panic异常。
+关闭一个channel还会触发一个广播机制。
+*/
+
+/*
+单方向的channel (Unidirectional Channel Types)
+
+随着程序的增长，人们习惯将大函数拆分成小函数。然后将channel作为参数传递进去。如func squarer(out, in chan int)
+我们期望一个用于输出，一个用于输入，参数的名字也表达了这种意图。但这无法保证这些channel实际上是按照这种意图被使用的。
+为了表明这种意图并防止被滥用，Go语言的类型系统提供了单项的channel类型，分别用于只发送或只接收的channel。
+类型chan<- int表示一个只发送int的channel，只能发送不能接收。相反，类型<- chan int表示一个接收int的channel，只能接收不能发送。
+这种限制将在编译器检测。
+因为关闭操作只用于断言不在向channel发送新的数据，所以只有在发送者所在的goroutine才会调用close函数，
+因此对一个只接收的channel调用close将是一个编译错误。
+*/
+func counter(out chan<- int) {
+	for x := 0; x < 10; x++ {
+		out <- x
+	}
+	close(out)
+}
+
+func squarer(out chan<- int, in <-chan int) {
+	for v := range in {
+		out <- v * v
+	}
+	close(out)
+}
+
+func printer(in <-chan int) {
+	for v := range in {
+		fmt.Println(v)
+	}
+}
+
+func channels_pipeline_5() {
+	fmt.Println("channels_pipeline_5")
+
+	/* 注意，创建的channel还是双向的 */
+	naturals := make(chan int)
+	squares := make(chan int)
+
+	// Counter
+	/*
+		调用counter(naturals)将导致将chan int 类型的naturals隐式地转换为chan<‐ int 类型只发送型的
+		channel。调用printer(squares)也会导致相似的隐式转换，这一次是转换为<‐chan int 类型只接收
+		型的channel。任何双向channel向单向channel变量的赋值操作都将导致该隐式转换。这里并没有
+		反向转换的语法：也就是不能一个将类似chan<‐ int 类型的单向型的channel转换为chan int 类型
+		的双向型的channel。
+	*/
+	go counter(naturals)
+
+	// Squares
+	go squarer(squares, naturals)
+
+	printer(squares)
+}
 
 func main() {
 	fmt.Printf("%s\n", strings.Repeat("=", 64))
 	create_chan()
+
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+	close_chan()
 
 	fmt.Printf("%s\n", strings.Repeat("-", 64))
 	cmp_chan()
@@ -197,6 +407,18 @@ func main() {
 
 	fmt.Printf("%s\n", strings.Repeat("-", 64))
 	sync_routines()
+
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+	channels_pipeline_2()
+
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+	channels_pipeline_3()
+
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+	channels_pipeline_4()
+
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+	channels_pipeline_5()
 
 	fmt.Printf("%s\n", strings.Repeat("=", 64))
 }
