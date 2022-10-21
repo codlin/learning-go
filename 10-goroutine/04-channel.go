@@ -371,7 +371,7 @@ func channels_pipeline_5() {
 
 	// Counter
 	/*
-		调用counter(naturals)将导致将chan int 类型的naturals隐式地转换为chan<‐ int 类型只发送型的
+		调用counter(naturals)将导致将chan int 类型的naturals隐式地转换为chan<‐ int 类型的只发送型的
 		channel。调用printer(squares)也会导致相似的隐式转换，这一次是转换为<‐chan int 类型只接收
 		型的channel。任何双向channel向单向channel变量的赋值操作都将导致该隐式转换。这里并没有
 		反向转换的语法：也就是不能一个将类似chan<‐ int 类型的单向型的channel转换为chan int 类型
@@ -385,6 +385,20 @@ func channels_pipeline_5() {
 	printer(squares)
 }
 
+/*
+带缓存的channel （Buffered Channel）
+
+带缓存的channel内部持有一个元素队列。队列的最大容量是在调用make函数创建时通过第二个参数指定的。
+下面的语句创建一个可持有3个字符串元素的带缓存的channel。
+ch = make(chan string, 3)
++----+         +----+----+----+
+| *--|-------->|    |    |    |
++----+         +----+----+----+
+向channel的发送操作就是向内部缓存队列的尾部插入元素，接收操作则是从队列的头部删除元素。
+如果内部队列是满的，那么发送操作将阻塞一直到另一个goroutine执行接收操作而释放了新的队列空间。
+相反，如果channel是空的，那么接收操作将阻塞直到另一个goroutine执行发送操作向队列插入元素。
+可以使用内置函数cap()来获取channel的容量，使用len()来获取队列中有效元素的个数。
+*/
 func main() {
 	fmt.Printf("%s\n", strings.Repeat("=", 64))
 	create_chan()
