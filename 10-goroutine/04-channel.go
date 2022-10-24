@@ -399,6 +399,36 @@ ch = make(chan string, 3)
 相反，如果channel是空的，那么接收操作将阻塞直到另一个goroutine执行发送操作向队列插入元素。
 可以使用内置函数cap()来获取channel的容量，使用len()来获取队列中有效元素的个数。
 */
+func buffered_channel() {
+	fmt.Println("buffered_channel")
+
+	ch := make(chan string, 3)
+	ch <- "A"
+	ch <- "b"
+	fmt.Println(len(ch))
+	fmt.Println(cap(ch))
+}
+
+/*
+Go语言新手有时候会将一个带缓存的channel当作同一个goroutine中的队列使用，虽然语法简单，但实际上是一个错误。
+Channel和goroutine的调度机制是紧密相连的，如果没有goroutine从channel接收，发送方————也可能是整个程序————可能会永远阻塞。
+如果你只是需要一个简单的队列，使用slice就可以了。
+
+如果缓存因为没有goroutine接收而卡住，这种情况下称之为goroutines泄漏，这将是一个BUG。和垃圾变量不同，泄露的goroutines并不会被自动回收，
+因此确保每个不再需要的goroutine能正常退出是重要的。
+
+关于无缓存或带缓存channels之间的选择，或者是带缓存channels的容量大小选择，都可能影响程序的正确性。
+无缓存channel更强地保证了每个发送操作与相应的同步接收操作；但是对于带缓存的channel，这些操作都是解耦的。
+同时，即使我们知道将要发送到一个channel的信息数量的上限，创建一个对应容量大小的channel并在接收之前发送
+所有的值，这种做法是不罕见的。如果未能分配足够的缓冲将导致程序锁死。
+channel的缓存也可能影响程序的性能（类似于流水线上各个环节不同的处理速度）
+*/
+
+/*
+Looping in Parallel
+有点杂乱，待后补充
+*/
+
 func main() {
 	fmt.Printf("%s\n", strings.Repeat("=", 64))
 	create_chan()
