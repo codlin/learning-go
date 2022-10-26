@@ -424,11 +424,6 @@ Channel和goroutine的调度机制是紧密相连的，如果没有goroutine从c
 channel的缓存也可能影响程序的性能（类似于流水线上各个环节不同的处理速度）
 */
 
-/*
-Looping in Parallel
-有点杂乱，待后补充
-*/
-
 func main() {
 	fmt.Printf("%s\n", strings.Repeat("=", 64))
 	create_chan()
