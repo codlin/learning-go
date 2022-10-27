@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -110,7 +111,7 @@ func rocket_countdown3() {
 /*
 channel的零值时nil。nil的channel有时候也是有一些用处的。因为对一个nil的channel发送或接收操作会永远阻塞，
 在select中操作nil的channel将永远都不会被select到。这使得我们可以用nil来激活或禁用case，来达成处理其它输入或
-输出事件时超时或取消的逻辑。具体请参考例子du3()
+输出事件时超时或取消的逻辑。具体请参考例子du2()
 */
 // walkDir 以给定的目录作为根目录递归遍历文件树，并且发送每个文件的大小给fileSizes
 func walkDir(dir string, fileSizes chan<- int64) {
@@ -124,8 +125,52 @@ func walkDir(dir string, fileSizes chan<- int64) {
 	}
 }
 
+func walkDir2(dir string, n *sync.WaitGroup, fileSizes chan<- int64) {
+	defer n.Done()
+
+	for _, entry := range dirents(dir) {
+		if entry.IsDir() {
+			subdir := filepath.Join(dir, entry.Name())
+			n.Add(1)
+			go walkDir2(subdir, n, fileSizes)
+		} else {
+			fileSizes <- entry.Size()
+		}
+	}
+}
+
+// 增加信号量控制并发
+func walkDir3(dir string, n *sync.WaitGroup, fileSizes chan<- int64) {
+	defer n.Done()
+
+	for _, entry := range dirents2(dir) {
+		if entry.IsDir() {
+			subdir := filepath.Join(dir, entry.Name())
+			n.Add(1)
+			go walkDir3(subdir, n, fileSizes)
+		} else {
+			fileSizes <- entry.Size()
+		}
+	}
+}
+
 // dirents 返回目录下的条目信息
 func dirents(dir string) []os.FileInfo {
+	entries, err := ioutil.ReadDir(dir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "du: %v\n", err)
+		return nil
+	}
+	return entries
+}
+
+var sema = make(chan struct{}, 20)
+
+// 增加信号量控制并发
+func dirents2(dir string) []os.FileInfo {
+	sema <- struct{}{}
+	defer func() { <-sema }()
+
 	entries, err := ioutil.ReadDir(dir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "du: %v\n", err)
@@ -161,8 +206,148 @@ func du() {
 	}
 	printDiskUsage(nfiles, nbytes)
 }
+
+// 增加打印进度的功能。如果传入了-v flag，则会打印进度信息，否则不打印。此处用了nil channel。
+func du2() {
+	var verbose = flag.Bool("v", false, "show verbose progress message")
+	flag.Parse()
+	roots := flag.Args()
+	if len(roots) == 0 {
+		roots = []string{"."}
+	}
+
+	fileSizes := make(chan int64)
+	go func() {
+		for _, root := range roots {
+			walkDir(root, fileSizes)
+		}
+		close(fileSizes)
+	}()
+
+	var tick <-chan time.Time
+	if *verbose {
+		// log.Print("create ticker")
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		// defer log.Print("stop ticker")
+		tick = ticker.C
+	}
+
+	var nfiles, nbytes int64
+loop:
+	for {
+		select {
+		case size, ok := <-fileSizes:
+			if !ok {
+				break loop
+			}
+			nfiles++
+			nbytes += size
+		case <-tick:
+			printDiskUsage(nfiles, nbytes)
+		}
+	}
+	printDiskUsage(nfiles, nbytes)
+}
+
+// 对walkDir并发
+func du3() {
+	var verbose = flag.Bool("v", false, "show verbose progress message")
+	flag.Parse()
+	roots := flag.Args()
+	if len(roots) == 0 {
+		roots = []string{"."}
+	}
+
+	var wg sync.WaitGroup
+	fileSizes := make(chan int64)
+	for _, root := range roots {
+		wg.Add(1)
+		go walkDir2(root, &wg, fileSizes)
+	}
+	go func() {
+		wg.Wait()
+		close(fileSizes)
+	}()
+
+	var tick <-chan time.Time
+	if *verbose {
+		// log.Print("create ticker")
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		// defer log.Print("stop ticker")
+		tick = ticker.C
+	}
+
+	var nfiles, nbytes int64
+loop:
+	for {
+		select {
+		case size, ok := <-fileSizes:
+			if !ok {
+				break loop
+			}
+			nfiles++
+			nbytes += size
+		case <-tick:
+			printDiskUsage(nfiles, nbytes)
+		}
+	}
+	printDiskUsage(nfiles, nbytes)
+}
+
+// du3没有控制并发的线程数，导致系统的线程被耗尽
+// runtime: failed to create new OS thread (have 3471 already; errno=5)
+// du4版本加入对线程数的控制
+func du4() {
+	var verbose = flag.Bool("v", false, "show verbose progress message")
+	flag.Parse()
+	roots := flag.Args()
+	if len(roots) == 0 {
+		roots = []string{"."}
+	}
+
+	var wg sync.WaitGroup
+	fileSizes := make(chan int64)
+	for _, root := range roots {
+		wg.Add(1)
+		go walkDir3(root, &wg, fileSizes)
+	}
+	go func() {
+		wg.Wait()
+		close(fileSizes)
+	}()
+
+	var tick <-chan time.Time
+	if *verbose {
+		// log.Print("create ticker")
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		// defer log.Print("stop ticker")
+		tick = ticker.C
+	}
+
+	var nfiles, nbytes int64
+loop:
+	for {
+		select {
+		case size, ok := <-fileSizes:
+			if !ok {
+				break loop
+			}
+			nfiles++
+			nbytes += size
+		case <-tick:
+			printDiskUsage(nfiles, nbytes)
+		}
+	}
+	printDiskUsage(nfiles, nbytes)
+}
+
+// du5版本见 07-cancellation.go
+
 func main() {
 	// rocket_countdown3()
 
-	du()
+	du4()
 }
