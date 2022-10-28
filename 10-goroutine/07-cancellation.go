@@ -17,9 +17,17 @@ import (
 由于这样会导致goroutine之间的共享变量落在未定义的状态。
 */
 
+// 这个程序可能还存在问题
+
+var sema = make(chan struct{}, 20)
+var done = make(chan struct{})
+
 // 增加信号量控制并发
 func walkDir3(dir string, n *sync.WaitGroup, fileSizes chan<- int64) {
 	defer n.Done()
+	if canceled() {
+		return
+	}
 
 	for _, entry := range dirents2(dir) {
 		if entry.IsDir() {
@@ -32,11 +40,23 @@ func walkDir3(dir string, n *sync.WaitGroup, fileSizes chan<- int64) {
 	}
 }
 
-var sema = make(chan struct{}, 20)
+func canceled() bool {
+	select {
+	case <-done:
+		return true
+	default:
+		return false
+	}
+}
 
 // 增加信号量控制并发
 func dirents2(dir string) []os.FileInfo {
 	sema <- struct{}{}
+	select {
+	case sema <- struct{}{}:
+	case <-done:
+		return nil
+	}
 	defer func() { <-sema }()
 
 	entries, err := ioutil.ReadDir(dir)
@@ -71,6 +91,12 @@ func du5() {
 		close(fileSizes)
 	}()
 
+	go func() {
+		os.Stdin.Read(make([]byte, 1))
+		fmt.Println("user abort")
+		close(done)
+	}()
+
 	var tick <-chan time.Time
 	if *verbose {
 		// log.Print("create ticker")
@@ -92,6 +118,11 @@ loop:
 			nbytes += size
 		case <-tick:
 			printDiskUsage(nfiles, nbytes)
+		case <-done:
+			// drain channel
+			for range fileSizes {
+			}
+			return
 		}
 	}
 	printDiskUsage(nfiles, nbytes)
