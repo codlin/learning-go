@@ -1,8 +1,98 @@
 package main
 
+import "sync"
+
 /*
 互斥锁 Mutual Exclusion
+
+互斥锁可以对一段代码进行加锁和解锁，在Lock和Unlock之间的代码，可以自由的读取和修改共享变量，这部分区域称为临界区。
+在锁的持有人调用Unlock之前，其它的goroutine和线程不能获取锁。
+所以很重要的一点：在使用完成后应当及时释放锁，包括函数的所有分支， 特别是错误分支。
+在一些较复杂的临界区场景中，特别是需要通过提前返回来处理错误的场景，很难确定在所有分支中Lock和Unlock都成对执行了。
+Go语言的defer可以解决这个问题：通过延迟执行Unlock就可以把临界区隐式扩展到当前函数的结尾，避免了必须在一个或多个
+原来Lock的分支中插入Unlock。而且临界区崩溃时延迟执行的Unlock也会正确执行，这种使用recover的情况下尤为重要。
+
+当然，defer的执行成本比显示调用defer要略大一些，但不足以成为代码不清晰的理由。处理并发程序时，永远应该考虑
+清晰度优先，并且拒绝过早优化。在可以使用的地方，就尽量使用defer来人临界区扩展到函数结尾。
+
+Go语言通过sync.Mutex提供互斥锁。
 */
+
+// 还是银行的例子，使用加互斥锁的方式
+var (
+	mu      sync.Mutex
+	balance int
+)
+
+func Deposit(amount int) {
+	mu.Lock()
+	balance += amount
+	mu.Unlock()
+}
+
+func Balance() int {
+	mu.Lock()
+	defer mu.Unlock() // 使用defer延迟执行Unlock
+
+	b := balance
+	return b
+}
+
+// 注意：部署原子操作
+func Withdraw(amount int) bool {
+	Deposit(-amount)
+	if Balance() < 0 {
+		Deposit(amount)
+		return false // 余额不足
+	}
+	return true
+}
+
+/*
+上面的函数Withdraw虽然最终能给出正确结果，但它有一个不良的副作用。
+在尝试进行提款时，在某个瞬间余额会降到0一下。这有可能会导致一个小额的取款会不合逻辑的被拒绝掉。
+Withdraw的问题在于不是原子操作：它包括3个串行的操作，每个操作都申请释放了互斥锁，但整个序列没有加锁。
+*/
+// 注意：错误的实现
+func Withdraw2(amount int) bool {
+	mu.Lock()
+	defer mu.Unlock()
+
+	Deposit(-amount)
+	if Balance() < 0 {
+		Deposit(amount)
+		return false // 余额不足
+	}
+	return true
+}
+
+/*
+上面的Withdraw2的实现时不正确的，因为Go语言的互斥量是不可重入的。关于不可重入的讨论见后面。
+一个常见的解决方案是把Deposit这样的函数进行拆分成两部分：一个不导出的函数deposit，它假定已经获得了互斥锁，
+并完成实际的业务逻辑；已经一个导出的Deposit，它用来获取锁并调用deposit。
+*/
+// 这个函数要求已获取互斥锁
+func deposit(amount int) {
+	balance += amount
+}
+
+func Deposit2(amount int) {
+	mu.Lock()
+	deposit(amount)
+	mu.Unlock()
+}
+
+func Withdraw3(amount int) bool {
+	mu.Lock()
+	defer mu.Unlock()
+
+	deposit(-amount)
+	if balance < 0 { // balance已经在临界区
+		deposit(amount)
+		return false // 余额不足
+	}
+	return true
+}
 
 /*
 1. 什么是可重入锁？
