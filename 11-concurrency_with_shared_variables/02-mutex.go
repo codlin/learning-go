@@ -335,4 +335,77 @@ func up() {
    b++
    mutex.Unlock()
 }
+
+下面是我在Group的提问：
+--------------------------------------------------------------------------------------------------------
+https://groups.google.com/g/golang-nuts/c/VOG2xsV0JyM
+
+Perter 的回复：
+I tried to think of a simple example.
+
+type Average struct {
+    sum   float64
+    count int64
+    mx    sync.Mutex
+}
+
+https://go.dev/play/p/4SLCLuqG246
+
+1. An invariant represents a condition that does not change while the process progresses - Niklaus Wirth.
+
+2. The additional invariant--Average = sum / count--is specific to the data structure that the mutex mx guards.
+
+3. The shared variables sum and count are part of an invariant.
+
+4. The Add method temporarily violates the invariant by updating sum but restores the invariant by updating count.
+
+Peter
+--------------------------------------------------------------------------------------------------------
+Perter 示例中的代码：
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+type Average struct {
+	sum   float64
+	count int64
+	mx    sync.Mutex
+}
+
+func (a *Average) Add(value float64) {
+	a.mx.Lock()
+	defer a.mx.Unlock()
+	a.sum += value
+	a.count++
+}
+
+func (a *Average) Value() float64 {
+	a.mx.Lock()
+	defer a.mx.Unlock()
+	return a.sum / float64(a.count)
+}
+
+func main() {
+	var wg sync.WaitGroup
+	var a Average
+	fmt.Println(a.Value())
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		a.Add(3.14159)
+	}()
+	go func() {
+		defer wg.Done()
+		a.Add(2.71828)
+	}()
+	wg.Wait()
+	fmt.Println(a.Value())
+}
+--------------------------------------------------------------------------------------------------------
+不过正如帖子中ren所说，我也很好奇可重入锁是如何违反上面的问题的？
+有没有一个其它语言可重入锁的例子来证明一下？
+
 */
