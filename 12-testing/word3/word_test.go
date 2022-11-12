@@ -31,3 +31,21 @@ func TestRandomPalindromes(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkIsPalindrome(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		IsPalindrome("A man, a plan, a canal: Panama")
+	}
+}
+
+func BenchmarkIsPalindrome2(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		IsPalindrome2("A man, a plan, a canal: Panama")
+	}
+}
+
+func BenchmarkIsPalindrome3(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		IsPalindrome3("A man, a plan, a canal: Panama")
+	}
+}
