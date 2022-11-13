@@ -5,5 +5,6 @@
     // "workbench.preferredDarkColorTheme": "Atom Material Theme",
     "workbench.iconTheme": "material-icon-theme",
     "editor.fontLigatures": true,
-    "dart.lineLength": 120
+    "dart.lineLength": 120,
+    "files.autoSave": "afterDelay"
 }
