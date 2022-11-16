@@ -27,4 +27,52 @@ with go to Statements”一文中。虽然经常被误解为性能并不重要�
 当我们希望仔细地查看程序的速度时，发现关键代码的最佳技术就是性能剖析。
 性能剖析是通过自动化手段在程序执行过程中基于一些性能事件的采样来进行性能评测，
 然后再从这些采样中推断分析，得到的统计报告就称作为性能剖析（profile）。
+
+Go语言支持很多种性能剖析方式，每一个都和一个不同方面的性能指标有关，但是它们都需要记录一些相关的事件，
+每一个都有一些相关的信息栈————在事件发生时活跃函数的调用栈。工具go test内置支持一些类别的性能剖析。
+
+CPU性能剖析识别出执行过程中需要CPU最多的函数。在每个CPU上面执行的线程都每隔几毫秒被定期地被操作系统中断，
+在每次中断过程中记录一个性能剖析事件，然后恢复正常执行。
+
+堆性能剖析识别出执行过程中分配最多内存的语句。性能剖析库对协程内部内存分配调用进行采样，因此每个性能剖析
+事件平均记录了分配的512KB内存。
+
+阻塞性能剖析识别出那些阻塞协程最久的操作，例如系统调用，通道发送和接收数据，以及获取锁等。性能分析库在一个
+goroutine每次被上述操作之一阻塞的时候记录一个事件。
+
+获取待测代码的性能分析剖析报告很容易，只需要像下面一样指定一个标记即可。当一次使用多个标记的时候需要注意，
+获取性能分析报告的机制是当获取其中一个类别的报告时会覆盖掉其它类别的报告。
+$ go test -cpuprofile=cpu.out
+$ go test -blockprofile=block.out
+$ go test -memprofile=mem.out
+
+为非测试程序添加性能剖析也很容易。性能剖析对于长时间允许的程序尤为有用，所以Go语言运行时的性能剖析特性可以
+让程序员通过runtime API来启用。
+
+在我们获得性能剖析的结果后，我们使用pprof工具来分析它。这个是Go发布包的标准部分，但是因为不经常使用，所以
+通过go tool pprof间接来使用它。
+为了使得性能剖析过程高效并且节约空间，性能剖析日志里面没有记录函数名称而是使用了它们的地址。这意味着pprof
+工具需要可执行文件才能理解数据内容。虽然通常情况下go test工具会在测试完成后丢弃用于测试而临时构建的可执行文件，
+在性能剖析启用的时候，它保存并把可执行文件命名为foo.test，其中foo是被测试包的名字。
+下面的命令简单演示了如何获取和显示简单的CPU性能剖析。
+$ go test -run=NONE -bench=ClientServerParallelTLS64 -cpuprofile=cpu.log net/http
+PASS
+BenchmarkClientServerParallelTLS64-8 1000
+3141325 ns/op 143010 B/op 1747 allocs/op
+ok net/http 3.395s
+$ go tool pprof -text -nodecount=10 ./http.test cpu.log
+2570ms of 3590ms total (71.59%)
+Dropped 129 nodes (cum <= 17.95ms)
+Showing top 10 nodes out of 166 (cum >= 60ms)
+flat flat% sum% cum cum%
+1730ms 48.19% 48.19% 1750ms 48.75% crypto/elliptic.p256ReduceDegree
+230ms 6.41% 54.60% 250ms 6.96% crypto/elliptic.p256Diff
+120ms 3.34% 57.94% 120ms 3.34% math/big.addMulVVW
+110ms 3.06% 61.00% 110ms 3.06% syscall.Syscall
+90ms 2.51% 63.51% 1130ms 31.48% crypto/elliptic.p256Square
+70ms 1.95% 65.46% 120ms 3.34% runtime.scanobject
+60ms 1.67% 67.13% 830ms 23.12% crypto/elliptic.p256Mul
+60ms 1.67% 68.80% 190ms 5.29% math/big.nat.montgomery
+50ms 1.39% 70.19% 50ms 1.39% crypto/elliptic.p256ReduceCarry
+50ms 1.39% 71.59% 60ms 1.67% crypto/elliptic.p256Sum
 */
