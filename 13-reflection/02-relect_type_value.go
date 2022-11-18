@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strconv"
+	"time"
 )
 
 /*
@@ -38,17 +40,147 @@ func reflect_stdout() {
 
 	v := reflect.ValueOf(3) // 3, 一个reflect.Value
 	fmt.Println(v)          // "3"
-	fmt.Println(v.String()) // 注意: "<int Value>"
 	/*
 		另一个与reflect.Type类似的是，reflect.Value也满足
 		fmt.Stringer，但除非Value包含的是一个字符串，否则String方法的
 		结果仅仅暴露了类型。通常，你需要使用fmt包的%v功能，它对
 		reflect.Value会进行特殊处理。
 	*/
-	fmt.Printf("%v\n", v) // "3"
+	fmt.Println(v.String()) // 注意: "<int Value>"
+	fmt.Printf("%v\n", v)   // "3"
+}
+
+/*
+reflect.ValueOf的逆操作是reflect.Value.Interface方法。它返回一个interface{}接口值，与reflect.Value包含同一个具体值。
+*/
+func reflect_value_interface() {
+	v := reflect.ValueOf(3) // a reflect.Value
+	x := v.Interface()      // an interface{}
+	i := x.(int)            // an int
+	fmt.Printf("%d\n", i)   // 3
+}
+
+// Any formats any value as a string.
+func Any(value interface{}) string {
+	return formatAtom(reflect.ValueOf(value))
+}
+
+// formatAtom formats a value without inspecting its internal structure.
+func formatAtom(v reflect.Value) string {
+	switch v.Kind() {
+	case reflect.Invalid:
+		return "invalid"
+	case reflect.Int, reflect.Int8, reflect.Int16,
+		reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(v.Int(), 10)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16,
+		reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return strconv.FormatUint(v.Uint(), 10)
+	// ...floating-point and complex cases omitted for brevity...
+	case reflect.Bool:
+		return strconv.FormatBool(v.Bool())
+	case reflect.String:
+		return strconv.Quote(v.String())
+	case reflect.Chan, reflect.Func, reflect.Ptr, reflect.Slice, reflect.Map:
+		return v.Type().String() + " 0x" +
+			strconv.FormatUint(uint64(v.Pointer()), 16)
+	default: // reflect.Array, reflect.Struct, reflect.Interface
+		return v.Type().String() + " value"
+	}
+}
+
+func formatAtom_test() {
+	var x int64 = 1
+	var d time.Duration = 1 * time.Nanosecond
+	fmt.Println(Any(x))                  // "1"
+	fmt.Println(Any(d))                  // "1"
+	fmt.Println(Any([]int64{x}))         // "[]int64 0x8202b87b0"
+	fmt.Println(Any([]time.Duration{d})) // "[]time.Duration 0x8202b87e0"
+}
+
+func Display(name string, x interface{}) {
+	fmt.Printf("Display %s (%T):\n", name, x)
+	display(name, reflect.ValueOf(x))
+}
+
+/*
+reflect.Value.Kind()返回值的类型
+reflect.Value.NumField()返回结构体字段的下标
+reflect.Value.Field(i)返回结构体的第i个字段
+reflect.Value.MapKeys()返回一个包含map的key值的slice，这些key值和顺序无关。
+*/
+func display(path string, v reflect.Value) {
+	switch v.Kind() {
+	case reflect.Invalid:
+		fmt.Printf("%s = invalid\n", path)
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			display(fmt.Sprintf("%s[%d]", path, i), v.Index(i))
+		}
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			fieldPath := fmt.Sprintf("%s.%s", path, v.Type().Field(i).Name)
+			display(fieldPath, v.Field(i))
+		}
+	case reflect.Map:
+		for _, key := range v.MapKeys() {
+			display(fmt.Sprintf("%s[%s]", path,
+				formatAtom(key)), v.MapIndex(key))
+		}
+	case reflect.Ptr:
+		if v.IsNil() {
+			fmt.Printf("%s = nil\n", path)
+		} else {
+			display(fmt.Sprintf("(*%s)", path), v.Elem())
+		}
+	case reflect.Interface:
+		if v.IsNil() {
+			fmt.Printf("%s = nil\n", path)
+		} else {
+			fmt.Printf("%s.type = %s\n", path, v.Elem().Type())
+			display(path+".value", v.Elem())
+		}
+	default: // basic types, channels, funcs
+		fmt.Printf("%s = %s\n", path, formatAtom(v))
+	}
+}
+
+type Movie struct {
+	Title, Subtitle string
+	Year            int
+	Color           bool
+	Actor           map[string]string
+	Oscars          []string
+	Sequel          *string
+}
+
+func display_test() {
+	strangelove := Movie{
+		Title:    "Dr. Strangelove",
+		Subtitle: "How I Learned to Stop Worrying and Love the Bomb",
+		Year:     1964,
+		Color:    false,
+		Actor: map[string]string{
+			"Dr. Strangelove":            "Peter Sellers",
+			"Grp. Capt. Lionel Mandrake": "Peter Sellers",
+			"Pres. Merkin Muffley":       "Peter Sellers",
+			"Gen. Buck Turgidson":        "George C. Scott",
+			"Brig. Gen. Jack D. Ripper":  "Sterling Hayden",
+			`Maj. T.J. "King" Kong`:      "Slim Pickens",
+		}, Oscars: []string{
+			"Best Actor (Nomin.)",
+			"Best Adapted Screenplay (Nomin.)",
+			"Best Director (Nomin.)",
+			"Best Picture (Nomin.)",
+		},
+	}
+	Display("strangelove", strangelove)
 }
 
 func main() {
 	reflect_demo()
 	reflect_stdout()
+	reflect_value_interface()
+	formatAtom_test()
+	display_test()
 }
