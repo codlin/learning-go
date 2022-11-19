@@ -6,6 +6,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -15,7 +16,7 @@ reflect.Type和reflect.Value
 反射功能由reflect包提供，它定义了两个重要的类型：Type和Value。
 Type表示Go语言的一个类型，它是一个有很多方法的接口，这些方法可以用来识别类型以及透视类型的组成部分，
 比如一个结构的组成部分或者一个函数的各个参数。
-reflect.Type接口只要一个实现，即类型描述符。接口值中的动态类型也是类型描述符。
+reflect.Type接口只有一个实现，即类型描述符。接口值中的动态类型也是类型描述符。
 reflect.TypeOf函数接受任何类型的interface{}参数，并且把接口中的动态类型以reflect.Type的形式返回。
 reflect.ValueOf函数接受任何类型的interface{}参数，并且把接口中的动态值以reflect.Value的形式返回。
 */
@@ -178,9 +179,20 @@ func display_test() {
 }
 
 func main() {
+	fmt.Printf("%s\n", strings.Repeat("=", 64))
+
 	reflect_demo()
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+
 	reflect_stdout()
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+
 	reflect_value_interface()
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+
 	formatAtom_test()
+	fmt.Printf("%s\n", strings.Repeat("-", 64))
+
 	display_test()
+	fmt.Printf("%s\n", strings.Repeat("=", 64))
 }
