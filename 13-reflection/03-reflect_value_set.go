@@ -15,6 +15,7 @@ import (
 事实上，通过reflect.ValueOf(x)返回的Value都是不可寻址的。
 可以通过变量的CanAddr来询问relfect.Value变量是否可寻址。
 关于可寻址，参见https://go.dev/ref/spec#Address_operators
+https://colobu.com/2018/02/27/go-addressable/
 我们可以通过指针间接获取一个可寻址的reflect.Value，即使这个指针是不可寻址的。可寻址的常见规则都在relfect包里有对应项。
 比如slice的下标表达式e[i]隐式地使用了指针（follows a pointer），即使e是不可寻址的，但是e[i]是可寻址的。
 类似的，reflect.VauleOf(e).Index(i)代表一个变量，尽管reflect.VauleOf(e)是不可寻址的，但是它可以。
