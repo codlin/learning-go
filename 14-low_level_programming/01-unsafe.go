@@ -178,50 +178,93 @@ func size_align_offset_of() {
 
 /**
 type Pointer
-Pointer represents a pointer to an arbitrary type. There are four special operations available for type Pointer that are not available for other types:
+Pointer represents a pointer to an arbitrary type. 
+There are four special operations available for type Pointer 
+that are not available for other types:
+Pointer代表了任意类型的一个指针。
+指针类型有4种特别的操作不适用于其它类型:
 - A pointer value of any type can be converted to a Pointer.
 - A Pointer can be converted to a pointer value of any type.
 - A uintptr can be converted to a Pointer.
 - A Pointer can be converted to a uintptr.
 
-Pointer therefore allows a program to defeat the type system and read and write arbitrary memory. It should be used with extreme care.
+Pointer therefore allows a program to defeat the type system and read and write arbitrary memory.
+It should be used with extreme care.
+指针允许程序击败类型系统并读写任意内存，因此使用时要格外小心。
 
-The following patterns involving Pointer are valid. Code not using these patterns is likely to be invalid today or to become invalid in the future. Even the valid patterns below come with important caveats.
+The following patterns involving Pointer are valid.
+Code not using these patterns is likely to be invalid today or to become invalid in the future.
+Even the valid patterns below come with important caveats.
+下面涉及到指针Pointer的模式是有效的。
+不使用这些模式的代码很可能在今天无效，或者是将来变得无效。
+即使是下面有效的模式也有重要的警告。
 
-Running "go vet" can help find uses of Pointer that do not conform to these patterns, but silence from "go vet" is not a guarantee that the code is valid.
+Running "go vet" can help find uses of Pointer that do not conform to these patterns,
+but silence from "go vet" is not a guarantee that the code is valid.
+运行"go vet"可以帮助找到不符合这些模式的Pointer用途。
+但是"go vet"的沉默并不能保证代码有效。
 
+模式1：
 (1) Conversion of a *T1 to Pointer to *T2.
 
-Provided that T2 is no larger than T1 and that the two share an equivalent memory layout, this conversion allows reinterpreting data of one type as data of another type. An example is the implementation of math.Float64bits:
+Provided that T2 is no larger than T1 and that the two share an equivalent memory layout,
+this conversion allows reinterpreting data of one type as data of another type. 
+假设 T2 不大于 T1 并且两者共享相同的内存布局，
+这种转换允许将一种类型的数据重新解释为另一种类型的数据。
 
+An example is the implementation of math.Float64bits:
 func Float64bits(f float64) uint64 {
 	return *(*uint64)(unsafe.Pointer(&f))
 }
+
+模式2：
 (2) Conversion of a Pointer to a uintptr (but not back to Pointer).
 
-Converting a Pointer to a uintptr produces the memory address of the value pointed at, as an integer. The usual use for such a uintptr is to print it.
+Converting a Pointer to a uintptr produces the memory address of the value pointed at, as an integer.
+The usual use for such a uintptr is to print it.
+将 Pointer 转换为 uintptr 会生成指向值的内存地址，作为整数。
+这种 uintptr 的通常用途是打印它。
 
 Conversion of a uintptr back to Pointer is not valid in general.
+通常，将 uintptr 转换回 Pointer 是无效的。
 
-A uintptr is an integer, not a reference. Converting a Pointer to a uintptr creates an integer value with no pointer semantics. Even if a uintptr holds the address of some object, the garbage collector will not update that uintptr's value if the object moves, nor will that uintptr keep the object from being reclaimed.
+A uintptr is an integer, not a reference. 
+Converting a Pointer to a uintptr creates an integer value with no pointer semantics.
+Even if a uintptr holds the address of some object, the garbage collector will not update 
+that uintptr's value if the object moves, nor will that uintptr keep the object from being reclaimed.
+uintptr 是一个整数，而不是一个引用。
+将Pointer 转换为 uintptr 会创建一个没有指针语义的整数值。
+即使 uintptr 保存了某个对象的地址，垃圾收集器也不会在对象移动时更新该 uintptr 的值，该 uintptr 也不会阻止该对象被回收。
 
 The remaining patterns enumerate the only valid conversions from uintptr to Pointer.
+其余模式枚举了从 uintptr 到 Pointer 的唯一有效转换。
 
+模式3：
 (3) Conversion of a Pointer to a uintptr and back, with arithmetic.
+    使用算术将指针转换为 uintptr 并返回。
 
-If p points into an allocated object, it can be advanced through the object by conversion to uintptr, addition of an offset, and conversion back to Pointer.
+If p points into an allocated object, it can be advanced through the object by conversion to uintptr, 
+addition of an offset, and conversion back to Pointer.
+如果 p 指向分配的对象，则可以通过转换为 uintptr、添加偏移量并转换回 Pointer 来“穿过”对象。
 
 p = unsafe.Pointer(uintptr(p) + offset)
-The most common use of this pattern is to access fields in a struct or elements of an array:
 
+The most common use of this pattern is to access fields in a struct or elements of an array:
 // equivalent to f := unsafe.Pointer(&s.f)
 f := unsafe.Pointer(uintptr(unsafe.Pointer(&s)) + unsafe.Offsetof(s.f))
 
 // equivalent to e := unsafe.Pointer(&x[i])
 e := unsafe.Pointer(uintptr(unsafe.Pointer(&x[0])) + i*unsafe.Sizeof(x[0]))
-It is valid both to add and to subtract offsets from a pointer in this way. It is also valid to use &^ to round pointers, usually for alignment. In all cases, the result must continue to point into the original allocated object.
+
+It is valid both to add and to subtract offsets from a pointer in this way.
+It is also valid to use &^ to round pointers, usually for alignment. 
+In all cases, the result must continue to point into the original allocated object.
+以这种方式从指针添加和减去偏移量都是有效的。
+使用 &^ 对指针进行舍入也是有效的，通常用于对齐。
+在所有情况下，结果必须继续指向原始分配的对象。
 
 Unlike in C, it is not valid to advance a pointer just beyond the end of its original allocation:
+与 C 不同，将指针前移刚好超出其原始分配的末尾是无效的：
 
 // INVALID: end points outside allocated space.
 var s thing
@@ -241,14 +284,32 @@ Note that the pointer must point into an allocated object, so it may not be nil.
 // INVALID: conversion of nil pointer
 u := unsafe.Pointer(nil)
 p := unsafe.Pointer(uintptr(u) + offset)
+
+模式4：
 (4) Conversion of a Pointer to a uintptr when calling syscall.Syscall.
+    调用syscall.Syscall 时将Pointer 转换为uintptr。
 
-The Syscall functions in package syscall pass their uintptr arguments directly to the operating system, which then may, depending on the details of the call, reinterpret some of them as pointers. That is, the system call implementation is implicitly converting certain arguments back from uintptr to pointer.
+The Syscall functions in package syscall pass their uintptr arguments directly to the operating system, 
+which then may, depending on the details of the call, reinterpret some of them as pointers. 
+That is, the system call implementation is implicitly converting certain arguments back from uintptr to pointer.
+syscall 包中的 Syscall 函数将它们的 uintptr 参数直接传递给操作系统，
+然后，根据调用的细节，它可能会将其中一些重新解释为指针。
+也就是说，系统调用实现隐式地将某些参数从 uintptr 转换回指针。
 
-If a pointer argument must be converted to uintptr for use as an argument, that conversion must appear in the call expression itself:
+If a pointer argument must be converted to uintptr for use as an argument, 
+that conversion must appear in the call expression itself:
+如果必须将指针参数转换为 uintptr 才能用作参数，则该转换必须出现在调用表达式本身中：
 
 syscall.Syscall(SYS_READ, uintptr(fd), uintptr(unsafe.Pointer(p)), uintptr(n))
-The compiler handles a Pointer converted to a uintptr in the argument list of a call to a function implemented in assembly by arranging that the referenced allocated object, if any, is retained and not moved until the call completes, even though from the types alone it would appear that the object is no longer needed during the call.
+
+The compiler handles a Pointer converted to a uintptr in the argument list of a call to a function 
+implemented in assembly by arranging that the referenced allocated object, 
+if any, is retained and not moved until the call completes, even though from the types alone it would 
+appear that the object is no longer needed during the call.
+编译器处理在对汇编中实现的函数调用的参数列表中转换为 uintptr 的指针，方法是保留引用的已分配对象（如果有的话），
+并且在调用完成之前不移动该对象，即使仅从类型来看似乎在调用期间不再需要该对象。
+(注：我们可以认为编译器针对每个syscall.Syscall函数调用中的每个被转换为uintptr类型的非类型安全指针实参添加了一些指令，
+从而保证此非类型安全指针所引用着的内存块在此调用返回之前不会被垃圾回收和移动。)
 
 For the compiler to recognize this pattern, the conversion must appear in the argument list:
 
@@ -256,6 +317,8 @@ For the compiler to recognize this pattern, the conversion must appear in the ar
 // before implicit conversion back to Pointer during system call.
 u := uintptr(unsafe.Pointer(p))
 syscall.Syscall(SYS_READ, uintptr(fd), u, uintptr(n))
+
+模式5：
 (5) Conversion of the result of reflect.Value.Pointer or reflect.Value.UnsafeAddr from uintptr to Pointer.
 
 Package reflect's Value methods named Pointer and UnsafeAddr return type uintptr instead of unsafe.Pointer to keep callers from changing the result to an arbitrary type without first importing "unsafe". However, this means that the result is fragile and must be converted to Pointer immediately after making the call, in the same expression:
@@ -267,6 +330,8 @@ As in the cases above, it is invalid to store the result before the conversion:
 // before conversion back to Pointer.
 u := reflect.ValueOf(new(int)).Pointer()
 p := (*int)(unsafe.Pointer(u))
+
+模式6：
 (6) Conversion of a reflect.SliceHeader or reflect.StringHeader Data field to or from Pointer.
 
 As in the previous case, the reflect data structures SliceHeader and StringHeader declare the field Data as a uintptr to keep callers from changing the result to an arbitrary type without first importing "unsafe". However, this means that SliceHeader and StringHeader are only valid when interpreting the content of an actual slice or string value.
