@@ -321,11 +321,18 @@ syscall.Syscall(SYS_READ, uintptr(fd), u, uintptr(n))
 模式5：
 (5) Conversion of the result of reflect.Value.Pointer or reflect.Value.UnsafeAddr from uintptr to Pointer.
 
-Package reflect's Value methods named Pointer and UnsafeAddr return type uintptr instead of unsafe.Pointer to keep callers from changing the result to an arbitrary type without first importing "unsafe". However, this means that the result is fragile and must be converted to Pointer immediately after making the call, in the same expression:
+Package reflect's Value methods named Pointer and UnsafeAddr return type uintptr instead of unsafe.
+Pointer to keep callers from changing the result to an arbitrary type without first importing "unsafe".
+However, this means that the result is fragile and must be converted to Pointer immediately after making the call,
+in the same expression:
+包 reflect 的名为 Pointer 和 UnsafeAddr 的 Value 方法返回类型 uintptr 而不是 unsafe。
+这是为了防止调用者在不首先导入“unsafe”的情况下将结果更改为任意类型的指针。
+但是，这意味着结果是脆弱的，必须在同一个表达式中将调用后立即转换为 Pointer，
 
+// MUST DO
 p := (*int)(unsafe.Pointer(reflect.ValueOf(new(int)).Pointer()))
-As in the cases above, it is invalid to store the result before the conversion:
 
+As in the cases above, it is invalid to store the result before the conversion:
 // INVALID: uintptr cannot be stored in variable
 // before conversion back to Pointer.
 u := reflect.ValueOf(new(int)).Pointer()
@@ -334,15 +341,27 @@ p := (*int)(unsafe.Pointer(u))
 模式6：
 (6) Conversion of a reflect.SliceHeader or reflect.StringHeader Data field to or from Pointer.
 
-As in the previous case, the reflect data structures SliceHeader and StringHeader declare the field Data as a uintptr to keep callers from changing the result to an arbitrary type without first importing "unsafe". However, this means that SliceHeader and StringHeader are only valid when interpreting the content of an actual slice or string value.
+As in the previous case, the reflect data structures SliceHeader and StringHeader declare the field Data 
+as a uintptr to keep callers from changing the result to an arbitrary type without first importing "unsafe".
+However, this means that SliceHeader and StringHeader are only valid when interpreting the content of an actual slice 
+or string value.
+与前面的情况一样，反映数据结构 SliceHeader 和 StringHeader 声明字段数据
+作为一个 uintptr 来防止调用者在不首先导入“unsafe”的情况下将结果更改为任意类型。
+然而，这意味着 SliceHeader 和 StringHeader 仅在解释实际切片的内容或字符串值时有效。
 
 var s string
 hdr := (*reflect.StringHeader)(unsafe.Pointer(&s)) // case 1
 hdr.Data = uintptr(unsafe.Pointer(p))              // case 6 (this case)
 hdr.Len = n
-In this usage hdr.Data is really an alternate way to refer to the underlying pointer in the string header, not a uintptr variable itself.
+In this usage hdr.Data is really an alternate way to refer to the underlying pointer in the string header,
+not a uintptr variable itself.
+在此用法中，hdr.Data 实际上是引用字符串标头中的底层指针的替代方法，而不是 uintptr 变量本身。
 
-In general, reflect.SliceHeader and reflect.StringHeader should be used only as *reflect.SliceHeader and *reflect.StringHeader pointing at actual slices or strings, never as plain structs. A program should not declare or allocate variables of these struct types.
+In general, reflect.SliceHeader and reflect.StringHeader should be used only as *reflect.SliceHeader 
+and *reflect.StringHeader pointing at actual slices or strings, never as plain structs.
+A program should not declare or allocate variables of these struct types.
+一般来说，reflect.SliceHeader 和 reflect.StringHeader 应该只用作指向实际切片或字符串的 *reflect.SliceHeader 
+和 *reflect.StringHeader，绝不能用作普通结构。程序不应声明或分配这些结构类型的变量。
 
 // INVALID: a directly-declared header will not hold Data as a reference.
 var hdr reflect.StringHeader
