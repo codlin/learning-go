@@ -39,8 +39,14 @@ func slice_share() {
 	fmt.Printf("%p, %v, len: %d, cap: %d\n", c, c, len(c), cap(c))
 }
 
-/* 如果切片操作超出cap(s)上限将导致一个panic，但超出len(s)则意味着扩展了slice，因为新的slice长度会变大 */
+/*
+如果切片操作[:index]超出cap(s)上限将导致一个panic，但超出len(s)则意味着扩展了slice，因为新的slice长度会变大
+如果切片操作[index:]超出了切片的长度len(s)，则会导致panic；但如果等于切片的长度，则会返回空切片[]
+*/
 func slice_expand() {
+	fmt.Println("enter slice_expand")
+	defer fmt.Println("leave slice_expand")
+
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("recovered in f", r)
@@ -53,11 +59,19 @@ func slice_expand() {
 	a = append(a, 6, 7, 8)
 	fmt.Printf("len: %d, cap: %d\n", len(a), cap(a))
 
+	// 扩展了切片长度
 	a = a[:9]
 	fmt.Printf("len: %d, cap: %d\n", len(a), cap(a))
 
-	a = a[:20] // panic
-	fmt.Printf("\n\n")
+	// a = a[:20] // panic
+
+	b := make([]int, 10, 11)
+	c := b[10:] // 返回一个空的切片
+	fmt.Printf("len: %d, cap: %d\n", len(c), cap(c))
+	c = append(c, 11)
+	fmt.Printf("len: %d, cap: %d\n", len(c), cap(c))
+	d := b[11:] // 超出切片的长度，将会导致panic
+	fmt.Printf("len: %d, cap: %d\n", len(d), cap(d))
 }
 
 func slice_header(a []int) {
