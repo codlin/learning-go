@@ -63,7 +63,7 @@ func slice_expand() {
 	a = a[:9]
 	fmt.Printf("len: %d, cap: %d\n", len(a), cap(a))
 
-	// a = a[:20] // panic
+	a = a[:10] // panic
 
 	b := make([]int, 10, 11)
 	c := b[10:] // 返回一个空的切片
@@ -72,6 +72,10 @@ func slice_expand() {
 	fmt.Printf("len: %d, cap: %d\n", len(c), cap(c))
 	d := b[11:] // 超出切片的长度，将会导致panic
 	fmt.Printf("len: %d, cap: %d\n", len(d), cap(d))
+
+	// 对超出长度的slice赋值，将会导致panic
+	e := make([]int, 1, 4)
+	e[2] = 2 // panic
 }
 
 func slice_header(a []int) {
