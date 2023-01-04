@@ -78,6 +78,22 @@ func slice_expand() {
 	e[2] = 2 // panic
 }
 
+/*
+The primary expression a[low : high : max]
+构造与简单切片表达式 a[low : high] 相同类型、相同长度和相同元素的切片。
+此外，它通过将结果设置为 max - low 来控制结果切片的容量。
+low可以省略，省略时默认是0
+*/
+func full_slice_expr() {
+	fmt.Println("enter full_slice_expr")
+	defer fmt.Println("leave full_slice_expr")
+	a := [5]int{1, 2, 3, 4, 5}
+	b := a[1:3]
+	fmt.Printf("len: %d, cap: %d\n", len(b), cap(b)) // len: 2, cap: 4
+	c := a[1:3:4]
+	fmt.Printf("len: %d, cap: %d\n", len(c), cap(c)) // len: 2, cap: 3
+}
+
 func slice_header(a []int) {
 	header := (*reflect.SliceHeader)(unsafe.Pointer(&a))
 	fmt.Printf("addr: 0x%x\tlen:%d\tcap:%d\n", header.Data, header.Len, header.Cap)
@@ -349,6 +365,7 @@ func reverse_test() {
 func main() {
 	slice_declare()
 	slice_share()
+	full_slice_expr()
 	slice_expand()
 	slice_expand2()
 	slice_expand3()
